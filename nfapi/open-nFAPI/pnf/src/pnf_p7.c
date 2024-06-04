@@ -37,6 +37,10 @@
 #include <socket/include/socket_common.h>
 #endif
 
+#ifdef ENABLE_WLS
+#include "wls_integration/include/wls_pnf.h"
+#endif
+#define FAPI2_IP_DSCP	0
 
 extern int sf_ahead;
 
