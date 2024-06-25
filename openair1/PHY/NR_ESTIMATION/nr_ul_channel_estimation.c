@@ -1028,7 +1028,7 @@ int nr_srs_channel_estimation(
   uint32_t signal_power = max(signal_energy_nodc(ch, arr_len), 1);
 
 #ifdef SRS_DEBUG
-  LOG_I(NR_PHY, "signal_power = %u\n", signal_power);
+  LOG_I(NR_PHY, "signal_power = %d dB\n", dB_fixed(signal_power));
 #endif
 
   if (signal_power == 0) {
