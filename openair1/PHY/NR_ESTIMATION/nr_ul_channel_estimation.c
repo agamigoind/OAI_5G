@@ -89,44 +89,16 @@ int32_t nr_est_toa_ns_srs(NR_DL_FRAME_PARMS *frame_parms,
       max_idx = max_idx - NR_SRS_IDFT_OVERSAMP_FACTOR * frame_parms->ofdm_symbol_size;
 
     // Check for detection threshold
-    LOG_D(PHY, "SRS ToA estimator (RX ant %d): max_val %d, mean_val %d, max_idx %d\n", arx_index, max_val, mean_val, max_idx);
-    if ((mean_val != 0) && (max_val / mean_val > 10)) {
+    if ((mean_val != 0) && (max_val / mean_val > 100)) {
       srs_toa_ns[arx_index] = (max_idx * 1e9) / (NR_SRS_IDFT_OVERSAMP_FACTOR * frame_parms->samples_per_frame * 100);
     } else {
       srs_toa_ns[arx_index] = 0xFFFF;
     }
-    LOG_I(PHY, "SRS ToA estimator (RX ant %d): toa %d ns\n", arx_index, srs_toa_ns[arx_index]);
-  }
 
-  // Add T tracer to log these chF and chT
-  /*
-  T(T_GNB_PHY_UL_FREQ_CHANNEL_ESTIMATE_OVER_SAMPLING,
-    T_INT(0),
-    T_INT(srs_pdu->rnti),
-    T_INT(frame),
-    T_INT(0),
-    T_INT(0),
-    T_BUFFER(chF_interpol[0][0], NR_SRS_IDFT_OVERSAMP_FACTOR*frame_parms->ofdm_symbol_size * sizeof(int32_t)));
+    LOG_D(PHY, "SRS estimatd ToA [RX ant %d]: %d ns (max_val %d, mean_val %d, max_idx %d)\n", arx_index, srs_toa_ns[arx_index], max_val, mean_val, max_idx);
+  } // Antenna loop
 
-  T(T_GNB_PHY_UL_TIME_CHANNEL_ESTIMATE_OVER_SAMPLING,
-    T_INT(0),
-    T_INT(srs_pdu->rnti),
-    T_INT(frame),
-    T_INT(0),
-    T_INT(0),
-    T_BUFFER(chT_interpol[0][0], NR_SRS_IDFT_OVERSAMP_FACTOR*frame_parms->ofdm_symbol_size * sizeof(int32_t)));
-  */
-
-  if (max_idx > NR_SRS_IDFT_OVERSAMP_FACTOR * frame_parms->ofdm_symbol_size >> 1)
-    max_idx = max_idx - NR_SRS_IDFT_OVERSAMP_FACTOR * frame_parms->ofdm_symbol_size;
-
-  // Check for detection threshold
-  LOG_D(PHY, "SRS ToA estimator: max_val %d, mean_val %d, max_idx %d\n", max_val, mean_val, max_idx);
-  if ((mean_val != 0) && (max_val / mean_val > 10)) {
-    return (max_idx * 1e9) / (NR_SRS_IDFT_OVERSAMP_FACTOR * frame_parms->samples_per_frame * 100);
-  } else {
-    return 0xFFFF;
-  }
+  return 0;
 }
 
 __attribute__((always_inline)) inline c16_t c32x16cumulVectVectWithSteps(c16_t *in1,
