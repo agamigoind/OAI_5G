@@ -595,7 +595,7 @@ static int rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
   NR_ReportConfigToAddMod_t *rc_PER = NULL;
   NR_ReportConfigToAddMod_t *rc_A2 = NULL;
   seq_arr_t *rc_A3_seq = NULL;
-  seq_arr_t *pci_seq = NULL;
+  seq_arr_t *neigh_seq = NULL;
   if (du->mtc != NULL) {
     int scs = get_ssb_scs(cell_info);
     int band = get_dl_band(cell_info);
@@ -614,16 +614,16 @@ static int rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
          If default one added once as a report, no need to add it again && duplication.
       */
       rc_A3_seq = malloc(sizeof(seq_arr_t));
-      pci_seq = malloc(sizeof(seq_arr_t));
+      neigh_seq = malloc(sizeof(seq_arr_t));
       seq_arr_init(rc_A3_seq, sizeof(NR_ReportConfigToAddMod_t));
-      seq_arr_init(pci_seq, sizeof(int));
+      seq_arr_init(neigh_seq, sizeof(nr_neighbour_cell_t));
       LOG_D(NR_RRC, "HO LOG: Preparing A3 Event Measurement Configuration!\n");
       bool is_default_a3_added = false;
       for (int i = 0; i < neighbour_cells->size; i++) {
         nr_neighbour_gnb_configuration_t *neighbourCell = (nr_neighbour_gnb_configuration_t *)seq_arr_at(neighbour_cells, i);
-        if (!neighbourCell->isIntraFrequencyNeighbour)
-          continue;
-        seq_arr_push_back(pci_seq, &neighbourCell->physicalCellId, sizeof(int));
+        nr_neighbour_cell_t neigh_cell = {.physicalCellId = neighbourCell->physicalCellId,
+                                          .absoluteFrequencySSB = neighbourCell->absoluteFrequencySSB};
+        seq_arr_push_back(neigh_seq, &neigh_cell, sizeof(nr_neighbour_cell_t));
         const nr_a3_event_t *a3Event = get_a3_configuration(rrc, neighbourCell->physicalCellId);
         if (!a3Event || is_default_a3_added)
           continue;
@@ -637,7 +637,7 @@ static int rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
     if (rrc->measurementConfiguration.a2_event)
       rc_A2 = prepare_a2_event_report(rrc->measurementConfiguration.a2_event);
 
-    measconfig = get_MeasConfig(mt, band, scs, rc_PER, rc_A2, rc_A3_seq, pci_seq);
+    measconfig = get_MeasConfig(mt, band, scs, rc_PER, rc_A2, rc_A3_seq, neigh_seq);
   }
 
   if (UE->measConfig)

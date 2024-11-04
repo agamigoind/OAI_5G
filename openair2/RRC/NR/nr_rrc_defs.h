@@ -311,6 +311,11 @@ typedef struct {
   bool isIntraFrequencyNeighbour;
 } nr_neighbour_gnb_configuration_t;
 
+typedef struct {
+  int physicalCellId;
+  int absoluteFrequencySSB;
+} nr_neighbour_cell_t;
+
 typedef struct neighbour_cell_configuration_s {
   uint64_t nr_cell_id;
   seq_arr_t *neighbour_cells;
