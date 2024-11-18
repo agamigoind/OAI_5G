@@ -50,8 +50,10 @@
 #include "NR_ReestablishmentCause.h"
 #include "NR_SRB-ToAddModList.h"
 #include "NR_SecurityConfig.h"
+#include "NR_MeasurementReport.h"
 #include "ds/seq_arr.h"
 #include "rrc_messages_types.h"
+#include "common/utils/nr/nr_common.h"
 struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList;
 struct asn_TYPE_descriptor_s;
 
@@ -126,6 +128,11 @@ int do_RRCSetupComplete(uint8_t *buffer,
 int do_NR_HandoverPreparationInformation(const uint8_t *uecap_buf, int uecap_buf_size, uint8_t *buf, int buf_size);
 
 int do_RRCSetupRequest(uint8_t *buffer, size_t buffer_size, uint8_t *rv, uint64_t fiveG_S_TMSI_part1);
+
+int do_nrMeasurementReport_SA(NR_MeasurementReport_t *measurementReport,
+                              l3_measurements_t *l3_measurements,
+                              uint8_t *buffer,
+                              size_t buffer_size);
 
 int do_NR_RRCReconfigurationComplete_for_nsa(uint8_t *buffer, size_t buffer_size, NR_RRC_TransactionIdentifier_t Transaction_id);
 
