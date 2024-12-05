@@ -2181,20 +2181,6 @@ endforeach(myExe)
 #../targets/TEST/PDCP/test_pdcp.c
 #../targets/TEST/PDCP/with_rlc/test_pdcp_rlc.c
 
-#ensure that the T header files are generated before targets depending on them
-if (${T_TRACER})
-  foreach(i
-        #all "add_library" definitions
-        oai_bladerfdevif oai_lmssdrdevif
-        oai_eth_transpro oai_mobipass
-        GTPV1U Nb_IoT
-        config_internals nr_common)
-    if (TARGET ${i})
-      add_dependencies(${i} generate_T)
-    endif()
-  endforeach(i)
-endif (${T_TRACER})
-
 include(${OPENAIR1_DIR}/PHY/CODING/nrLDPC_decoder/nrLDPC_tools/CMakeLists.txt)
 
 set(ENABLE_TESTS OFF CACHE STRING "Activate build of tests")
