@@ -763,7 +763,7 @@ set(PHY_NRLDPC_CODINGIF
 )
 
 add_library(dfts MODULE ${OPENAIR1_DIR}/PHY/TOOLS/oai_dfts.c ${OPENAIR1_DIR}/PHY/TOOLS/oai_dfts_neon.c)
-target_link_libraries(dfts PRIVATE UTIL)
+target_link_libraries(dfts PRIVATE utils)
 
 set(PHY_SRC_COMMON
   ${OPENAIR1_DIR}/PHY/LTE_TRANSPORT/dci_tools_common.c
