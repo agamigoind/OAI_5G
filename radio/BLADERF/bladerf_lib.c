@@ -155,7 +155,20 @@ static int trx_brf_write(openair0_device *device,
     if (status != 0) {
         //fprintf(stderr,"Failed to TX sample: %s\n", bladerf_strerror(status));
         brf->num_tx_errors++;
-        brf_error(status);
+        if (status == BLADERF_ERR_TIME_PAST) {
+          fprintf(stderr, "Timestamp error: Requested timestamp is in the past. Retrying with adjusted timestamp.\n");
+          ptimestamp += 1000;  // Adjust the timestamp (e.g., by 1000 samples)
+          brf->meta_tx.timestamp = ptimestamp;
+
+          // Retry transmission
+          status = bladerf_sync_tx(brf->dev, samples, (unsigned int)nsamps, &brf->meta_tx, 2 * brf->tx_timeout_ms);
+          if (status != 0) {
+            fprintf(stderr, "Retry failed: %s\n", bladerf_strerror(status));
+//            brf_error(status);
+            return -1; // no exit if failed transmission
+          }
+        }
+
     } else if (brf->meta_tx.status & BLADERF_META_STATUS_UNDERRUN) {
         /* libbladeRF does not report this status. It is here for future use. */
         fprintf(stderr, "TX Underrun detected. %u valid samples were read.\n",  brf->meta_tx.actual_count);
@@ -497,11 +510,11 @@ int device_init(openair0_device *device,
         printf("[BRF] set RX sample rate to %u, %u\n", (unsigned int) openair0_cfg->sample_rate, actual_value);
 
 
-    if ((status=bladerf_set_bandwidth(brf->dev, BLADERF_MODULE_RX, (unsigned int) openair0_cfg->rx_bw*2, &actual_value)) != 0) {
-        fprintf(stderr,"Failed to set RX bandwidth: %s\n", bladerf_strerror(status));
+    if ((status=bladerf_set_bandwidth(brf->dev, BLADERF_MODULE_RX, (unsigned int) openair0_cfg->rx_bw/2, &actual_value)) != 0) {
+        fprintf(stderr,"Failed to set RX bandwidth: %d %d %s\n", (unsigned int)openair0_cfg->rx_bw/2, actual_value, bladerf_strerror(status));
         brf_error(status);
     } else
-        printf("[BRF] set RX bandwidth to %u, %u\n",(unsigned int)openair0_cfg->rx_bw*2, actual_value);
+        printf("[BRF] set RX bandwidth to %u, %u\n",(unsigned int)openair0_cfg->rx_bw/2, actual_value);
 
     set_rx_gain_offset(&openair0_cfg[0],0);
     if ((status=bladerf_set_gain(brf->dev, BLADERF_MODULE_RX, (int) openair0_cfg->rx_gain[0]-openair0_cfg[0].rx_gain_offset[0])) != 0) {
@@ -524,11 +537,11 @@ int device_init(openair0_device *device,
     } else
         printf("[BRF] set TX sampling rate to %u \n", (unsigned int) openair0_cfg->sample_rate);
 
-    if ((status=bladerf_set_bandwidth(brf->dev, BLADERF_MODULE_TX,(unsigned int)openair0_cfg->tx_bw*2, NULL)) != 0) {
-        fprintf(stderr, "Failed to set TX bandwidth: %s\n", bladerf_strerror(status));
+    if ((status=bladerf_set_bandwidth(brf->dev, BLADERF_MODULE_TX,(unsigned int)openair0_cfg->tx_bw/2, NULL)) != 0) {
+        fprintf(stderr, "Failed to set TX bandwidth: %d %d %s\n", (unsigned int)openair0_cfg->rx_bw/2, actual_value, bladerf_strerror(status));
         brf_error(status);
     } else
-        printf("[BRF] set TX bandwidth to %u \n", (unsigned int) openair0_cfg->tx_bw*2);
+        printf("[BRF] set TX bandwidth to %u \n", (unsigned int) openair0_cfg->tx_bw/2);
 
     if ((status=bladerf_set_gain(brf->dev, BLADERF_MODULE_TX, (int) openair0_cfg->tx_gain[0])) != 0) {
         fprintf(stderr,"Failed to set TX gain: %s\n",bladerf_strerror(status));
