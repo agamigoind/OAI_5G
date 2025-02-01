@@ -398,24 +398,24 @@ int device_init(openair0_device *device,
     // init required params
     switch ((int)openair0_cfg->sample_rate) {
     case 46080000: // 46.08 MHz
-        openair0_cfg->samples_per_packet    = 2048;
+        openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
         openair0_cfg->tx_sample_advance     = 0;
 
         brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
-        brf->num_transfers                  = 32;  // the size of the underlying stream buffers, in samples
+        brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
         break;
     case 30720000: // 30.72 MHz
-        openair0_cfg->samples_per_packet    = 2048;
+        openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
         openair0_cfg->tx_sample_advance     = 0;
 
-        brf->num_buffers                    = 64; //  The number of buffers to use in the underlying data stream
-        brf->num_transfers                  = 16;  // the size of the underlying stream buffers, in samples
+        brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
+        brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
         break;
     case 23040000: // 23.04 MHz
-        openair0_cfg->samples_per_packet    = 1024; // FFT size should be 1024 (16384)
+        openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
         openair0_cfg->tx_sample_advance     = 0;
 
-        brf->num_buffers                    = 256; //  The number of buffers to use in the underlying data stream
+        brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
         break;
     case 15360000: // 15.36 MHz
