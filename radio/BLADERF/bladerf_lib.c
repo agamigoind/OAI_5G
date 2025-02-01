@@ -30,7 +30,6 @@
 #include <inttypes.h>
 #include "bladerf_lib.h"
 #include "math.h"
-#include "PHY/sse_intrin.h"
 
 /** @addtogroup _BLADERF_PHY_RF_INTERFACE_
  * @{
@@ -39,7 +38,14 @@
 //! Number of BladeRF devices
 int num_devices=0;
 
-/*These items configure the underlying asynch stream used by the the sync interface.
+/** falling back to 8bit in trying to tackle the 40MHZ issue is not working
+const bladerf_format format = BLADERF_FORMAT_SC8_Q7_META;
+Failed to configure TX sync interface: Invalid operation or parameter
+[BRF] brf_error: Invalid operation or parameter
+ **/
+const bladerf_format format = BLADERF_FORMAT_SC16_Q11_META;
+
+/*These items configure the underlying asynch stream used by the sync interface.
  */
 
 /*! \brief BladeRF Init function (not used at the moment)
@@ -87,7 +93,7 @@ int trx_brf_start(openair0_device *device)
 
     if ((status = bladerf_sync_config(brf->dev,
                                       BLADERF_MODULE_TX,
-                                      BLADERF_FORMAT_SC16_Q11_META,
+                                      format,
                                       brf->num_buffers,
                                       brf->buffer_size,
                                       brf->num_transfers,
@@ -97,7 +103,7 @@ int trx_brf_start(openair0_device *device)
     }
     if ((status = bladerf_sync_config(brf->dev,
                                       BLADERF_MODULE_RX,
-                                      BLADERF_FORMAT_SC16_Q11_META,
+                                      format,
                                       brf->num_buffers,
                                       brf->buffer_size,
                                       brf->num_transfers,
@@ -488,8 +494,8 @@ int device_init(openair0_device *device,
     // Example of CLI output: RX Frequency: 2539999999Hz
 
     /** [Forcing Tuning Mode to FPGA] */
-//    bladerf_tuning_mode tMode = BLADERF_TUNING_MODE_HOST;
-    bladerf_tuning_mode tMode = BLADERF_TUNING_MODE_FPGA;
+//    const bladerf_tuning_mode tMode = BLADERF_TUNING_MODE_HOST;
+    const bladerf_tuning_mode tMode = BLADERF_TUNING_MODE_FPGA;
     if ((status=bladerf_set_tuning_mode (brf->dev, tMode))) {
         fprintf(stderr, "[BRF] Unable to set tuning mode: %s\n", bladerf_strerror(status));
         brf_error(status);
@@ -555,10 +561,9 @@ int device_init(openair0_device *device,
     } else
         printf("[BRF] set the TX gain to %d\n", (int)openair0_cfg->tx_gain[0]);
 
-
     /* Configure the device's TX module for use with the sync interface.
       * SC16 Q11 samples *with* metadata are used. */
-    if ((status=bladerf_sync_config(brf->dev, BLADERF_MODULE_TX,BLADERF_FORMAT_SC16_Q11_META,brf->num_buffers,brf->buffer_size,brf->num_transfers,brf->tx_timeout_ms)) != 0 ) {
+    if ((status=bladerf_sync_config(brf->dev, BLADERF_MODULE_TX,format,brf->num_buffers,brf->buffer_size,brf->num_transfers,brf->tx_timeout_ms)) != 0 ) {
         fprintf(stderr,"Failed to configure TX sync interface: %s\n", bladerf_strerror(status));
         brf_error(status);
     } else
@@ -566,7 +571,7 @@ int device_init(openair0_device *device,
 
     /* Configure the device's RX module for use with the sync interface.
        * SC16 Q11 samples *with* metadata are used. */
-    if ((status=bladerf_sync_config(brf->dev, BLADERF_MODULE_RX, BLADERF_FORMAT_SC16_Q11_META,brf->num_buffers,brf->buffer_size,brf->num_transfers,brf->rx_timeout_ms)) != 0 ) {
+    if ((status=bladerf_sync_config(brf->dev, BLADERF_MODULE_RX, format,brf->num_buffers,brf->buffer_size,brf->num_transfers,brf->rx_timeout_ms)) != 0 ) {
         fprintf(stderr,"Failed to configure RX sync interface: %s\n", bladerf_strerror(status));
         brf_error(status);
     } else
