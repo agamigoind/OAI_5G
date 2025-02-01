@@ -397,12 +397,13 @@ int device_init(openair0_device *device,
 
     // init required params
     switch ((int)openair0_cfg->sample_rate) {
-    case 46080000: // 46.08 MHz
-        openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
+      case 46080000:  // 46.08 MHz
+        openair0_cfg->samples_per_packet    = 32768;  // 128 KB packets
         openair0_cfg->tx_sample_advance     = 0;
 
-        brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
-        brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
+        brf->num_buffers                    = 256;        // Larger number of buffers
+        brf->num_transfers                  = 64;      // More concurrent transfers
+        brf->rx_timeout_ms                  = 8000;
         break;
     case 30720000: // 30.72 MHz
         openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
@@ -410,6 +411,7 @@ int device_init(openair0_device *device,
 
         brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
         break;
     case 23040000: // 23.04 MHz
         openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
@@ -417,6 +419,7 @@ int device_init(openair0_device *device,
 
         brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
         break;
     case 15360000: // 15.36 MHz
         openair0_cfg->samples_per_packet    = 2048;
@@ -424,6 +427,7 @@ int device_init(openair0_device *device,
 
         brf->num_buffers                    = 64; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 16;  // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
         break;
     case 11520000: // 11.52 MHz
         openair0_cfg->samples_per_packet    = 2048;
@@ -431,12 +435,14 @@ int device_init(openair0_device *device,
 
         brf->num_buffers                    = 64; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 16;  // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
     case 7680000: // 7.68 MHz
         openair0_cfg->samples_per_packet    = 1024;
         openair0_cfg->tx_sample_advance     = 0;
 
         brf->num_buffers                    = 32; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 16; // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
         break;
     case 1920000: // 1.92 MHz
         openair0_cfg->samples_per_packet    = 256;
@@ -444,6 +450,7 @@ int device_init(openair0_device *device,
 
         brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
         brf->num_transfers                  = 16;  // the size of the underlying stream buffers, in samples
+        brf->rx_timeout_ms                  = 2000;
         break;
     default:
         printf("Error: unknown sampling rate %f\n",openair0_cfg->sample_rate);
@@ -454,7 +461,6 @@ int device_init(openair0_device *device,
     openair0_cfg->iq_rxrescale = 15; /*not sure*/
     openair0_cfg->rx_gain_calib_table = calib_table_fx4;
 
-    brf->rx_timeout_ms = 2000;
     brf->tx_timeout_ms = 2000;
     brf->buffer_size   = (unsigned int) openair0_cfg->samples_per_packet;//*sizeof(int32_t); // buffer size = 4096 for sample_len of 1024
     brf->sample_rate   = (unsigned int)openair0_cfg->sample_rate;
