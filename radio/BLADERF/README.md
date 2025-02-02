@@ -19,12 +19,6 @@ As of **2025**, this documentation provides instructions for setting up and usin
    
    **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
 
-   If you previously installed bladeRF through your package manager, remove it:
-   ```bash
-   sudo apt-get purge bladerf
-   dpkg -l | grep -i blade  # Check for remaining packages and remove them
-   ```
-
 ---
 
 ### **2. Update the Firmware and FPGA Image**
