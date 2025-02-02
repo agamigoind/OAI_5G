@@ -6,8 +6,8 @@ To install software packages on different platforms, you need to use the package
 ### **Summary of Package Managers**
 | Platform                    | Package Manager                      | Comments                |
 |-----------------------------|--------------------------------------|-------------------------|
-| [Debian](debian)            | APT (APT - Advanced Package Tool)    | Installing required packages and installing and compiling bladeRF host libraries and binaries |
-| [Fedora/CentOS/RHEL](dnf)   | DNF (DNF - Dandified Yum)            | Installing required packages and installing and compiling bladeRF host libraries and binaries |
-| [Ubuntu](ubuntu)            | APT (APT - Advanced Package Tool)    | Installing required packages provided by Nuand |
+| [Debian](debian)            | APT (APT - Advanced Package Tool)    | Installing required packages and installing and compiling bladeRF host libraries and binaries :bricks: |
+| [Fedora/CentOS/RHEL](dnf)   | DNF (DNF - Dandified Yum)            | Installing required packages and installing and compiling bladeRF host libraries and binaries :bricks: |
+| [Ubuntu](ubuntu)    :package:        | APT (APT - Advanced Package Tool)    | Installing required packages provided by Nuand |
 
 These package managers simplify software installation and ensure that dependencies are resolved automatically. Always keep your package list updated (`apt update` or `dnf update`) to get the latest versions and security patches.
