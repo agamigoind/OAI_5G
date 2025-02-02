@@ -15,7 +15,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - Install the latest **bladeRF 2.0 Micro** libraries and utilities.  
      It's recommended to build from source for the most recent updates.
 
-   Follow this link :point_right: [1.Installing](DOC/1.Installing)
+      Follow this link :point_right: [1.Installing](DOC/1.Installing) to find your Linux package Manager
    
    **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
 
