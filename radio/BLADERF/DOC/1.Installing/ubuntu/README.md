@@ -92,3 +92,13 @@ Summary
 -	Use sudo apt install bladerf for the easiest installation.
 -	Build from source if you need the latest version.
 -	Verify the installation with bladeRF-cli -i.
+
+## 4. Purge
+
+If you previously installed bladeRF through your package manager, remove it:
+```bash
+sudo apt-get purge bladerf
+dpkg -l | grep -i blade  # Check for remaining packages and remove them
+```
+
+
