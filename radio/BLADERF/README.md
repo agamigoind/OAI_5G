@@ -27,7 +27,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
       Follow this link :point_right: [2.Flashing](DOC/2.Flashing#flashlight-flashing-board) to flash the board.
 
-      Make sure you configure booting :point_right: [Nuand directory](DOC/2.Flashing#abacus-configuration-file) that will automatically load the FPGA image onto the board
+      Make sure to configure the booting :point_right: [Nuand directory](DOC/2.Flashing#abacus-configuration-file) that will automatically load the FPGA image onto the board
 
 ---
 
