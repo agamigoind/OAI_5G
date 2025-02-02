@@ -70,7 +70,7 @@ make && sudo make install && sudo ldconfig
 -- Set runtime path of "/usr/local/bin/bladeRF-power" to ""
 ```
 
-### Groups
+## Set Group
 
 ```
 $ groups
