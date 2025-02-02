@@ -80,8 +80,9 @@ fpga /Users/me/Developer/bladerf_testing/bladerf/Flashing/hostedxA4-latest.rbf
 # frequency 2.4G
 ```
 
-## [Upgrading Firmware](https://github.com/Nuand/bladeRF/wiki/Upgrading-bladeRF-FX3-Firmware)
+## That's it
 
+---
 
 # :bookmark: References
 
@@ -365,6 +366,6 @@ Verify the loaded image:
 bladeRF-cli -e "print info"
 ```
 
----
+## [Upgrading Firmware](https://github.com/Nuand/bladeRF/wiki/Upgrading-bladeRF-FX3-Firmware)
 
 Let me know if you have any specific use case questions or need further clarification!
