@@ -17,7 +17,6 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
       Follow this link :point_right: [1.Installing](DOC/1.Installing) to find your Linux package Manager
    
-   **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
 
 ---
 
@@ -71,7 +70,11 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ---
 
-### **4. Tune the RX Gain Using the gNB (NR)**
+   **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
+
+---
+
+### **5. Tune the RX Gain Using the gNB (NR)**
 
    Run the softmodem and monitor the **gNB (NR)** logs for input signal strength and performance.  
    Instructions are available on the OAI wiki:  
@@ -90,7 +93,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ---
 
-### **5. Test the Setup**
+### **6. Test the Setup**
 
    Connect a UE and run traffic tests (e.g., **iperf**).  
    Expected throughput:
@@ -101,7 +104,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ---
 
-### **6. Troubleshooting**
+### **7. Troubleshooting**
 
    Although calibration is automatic, you may still manually recalibrate if issues arise:
 
@@ -120,7 +123,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ---
 
-### **7. Additional Notes**
+### **8. Additional Notes**
 
    - For high sample rates, ensure your system has sufficient USB 3.1 bandwidth and CPU resources.
    - Monitor **RX/TX overruns** using logs and adjust parameters (e.g., sample rate, buffer size, and gain) as needed.
