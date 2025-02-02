@@ -14,18 +14,9 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
    - Install the latest **bladeRF 2.0 Micro** libraries and utilities.  
      It's recommended to build from source for the most recent updates.
-     
-   **Installation steps:**
-   ```bash
-   git clone https://github.com/Nuand/bladeRF.git
-   cd bladeRF
-   mkdir build && cd build
-   cmake ..
-   make
-   sudo make install
-   sudo ldconfig
-   ```
 
+   Follow this link :point_right: [1.Installing](DOC/1.Installing)
+   
    **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
 
    If you previously installed bladeRF through your package manager, remove it:
