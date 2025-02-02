@@ -10,7 +10,7 @@
 
 ### Install the required packages
 
-```
+```bash
 sudo apt update
 sudo apt install -y build-essential cmake git pkg-config libusb-1.0-0-dev libtecla-dev
 ```
@@ -28,7 +28,7 @@ Processing triggers for libc-bin (2.36-9+rpt2+deb12u9) ...
 
 #### a). Clone the **bladeRF** source code
 
-```
+```bash
 git clone https://github.com/Nuand/bladeRF.git
 ```
 > Returns
