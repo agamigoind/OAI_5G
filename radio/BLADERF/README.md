@@ -25,9 +25,11 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - Download the latest FPGA images from Nuand's GitHub.
 
 
-      Follow this link :point_right: [2.Flashing](DOC/2.Flashing#flashlight-flashing-board) to flash the board.
+      1. Follow this link :point_right: [2.Flashing](DOC/2.Flashing#flashlight-flashing-board) to flash the board.
 
-      Make sure to configure the booting :point_right: [Nuand directory](DOC/2.Flashing#abacus-configuration-file) that will automatically load the FPGA image onto the board
+      2. Make sure to create the booting :point_right: [Nuand directory](DOC/2.Flashing#abacus-configuration-file) that will automatically load the FPGA image onto the board
+
+      3. Finally, configure :point_right: [3.Configuring](DOC/3.Configuring) your setup to access the BladeRF device without requiring elevated privileges.
 
 ---
 
