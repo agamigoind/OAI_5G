@@ -39,17 +39,18 @@ As of **2025**, this documentation provides instructions for setting up and usin
    
    There is no longer a need to manually run multiple calibration commands (`cal lms`, `cal dc rxtx`), as was required with previous models. The transceiver performs dynamic calibration automatically during operation.
 
-   However, you can still manually verify calibration using:
+   However, you can still manually verify the configuration using:
 
    ```bash
-   sudo bladeRF-cli -i
-   cal lms
-   cal dc rxtx
+   bladeRF-cli --interactive
+   print
    ```
 
 ---
 
-   **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
+### **4. OAI and the bladeRF Libraries**
+
+   **Note:** Run OAI's `./build_oai -I` to install the OAI libraries. And manually install the bladeRF dependencies.
 
 ---
 
