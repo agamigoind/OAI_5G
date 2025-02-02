@@ -1,138 +1,144 @@
-BladeRF documentation
-=====================
+Here’s the revised version with the updated configuration file path.
 
-As of 2018-11-06, the bladeRF support is not fully automatic and requires
-some manual settings before use. This documentation is the ultimate source
-of information. If something described in this file does not work or does
-not correspond to the reality, then contact us so we can fix the problems
-and update this documentation.
+---
 
-1. Install bladeRF 2.0 libraries.
+# BladeRF 2.0 Micro Documentation (Updated)
 
-    As of now, it's better to install from source.
-    So, do not run: ./build_oai -I -w BLADERF
-    (That is: do not include '-w BLADERF'.)
+As of **2025**, this documentation provides instructions for setting up and using the **BladeRF 2.0 Micro** with OpenAirInterface (OAI). If you encounter any discrepancies, contact the support team or check the latest resources on Nuand's GitHub.
 
-    Instead, follow the instructions at: https://github.com/Nuand/bladeRF
+---
 
-    If you already had some bladeRF software installed using automatic
-    methods, first remove it by hand ('apt-get purge bladeRF' or something
-    similar, you can get the list of installed bladeRF packages by running
-    'dpkg -l|grep -i blade', remove them all).
+### **1. Install BladeRF 2.0 Micro Libraries**
 
-2. Update the device.
+   - Install the latest **bladeRF 2.0 Micro** libraries and utilities.  
+     It's recommended to build from source for the most recent updates.
+     
+   **Installation steps:**
+   ```bash
+   git clone https://github.com/Nuand/bladeRF.git
+   cd bladeRF
+   mkdir build && cd build
+   cmake ..
+   make
+   sudo make install
+   sudo ldconfig
+   ```
 
-    Download the latest FX3 firmware and FPGA images from Nuand's website.
-    As of writing, this is:
+   **Note:** Do not run OAI's `./build_oai -I -w BLADERF`. Instead, manually install the bladeRF dependencies.
 
-        https://github.com/Nuand/bladeRF/wiki
+   If you previously installed bladeRF through your package manager, remove it:
+   ```bash
+   sudo apt-get purge bladerf
+   dpkg -l | grep -i blade  # Check for remaining packages and remove them
+   ```
 
-    That points to the following pages.
-    For FX3:
+---
 
-        http://www.nuand.com/fx3_images/
+### **2. Update the Firmware and FPGA Image**
 
-    For FPGA:
+   Download the latest firmware and FPGA images from Nuand's GitHub.
 
-        http://www.nuand.com/fpga_images/
+   **Firmware:**  
+   - Visit: [FX3 Firmware Images](https://github.com/Nuand/bladeRF/wiki/FX3-Firmware)
 
-    Install FX3 firmware:
+   **FPGA Image:**  
+   - Visit: [FPGA Images](https://github.com/Nuand/bladeRF/wiki/FPGA-Images)
 
-        sudo bladeRF-cli -f bladeRF_fw_latest.img
+   Install the firmware and FPGA image:
 
-    Install FPGA image (this is for BladeRF x40):
+   ```bash
+   sudo bladeRF-cli -f bladeRF_fw_latest.img  # Install FX3 firmware
+   sudo bladeRF-cli -L hostedxA9-latest.rbf   # Install FPGA image (adjust model)
+   ```
 
-        sudo bladeRF-cli -L hostedx40-latest.rbf
+   Retrieve and verify device information:
+   ```bash
+   sudo bladeRF-cli -i
+   info
+   ```
 
-    Retrieve calibration information:
+   Use the serial number to obtain calibration data from:
+   [Nuand Calibration Portal](https://www.nuand.com/calibration).  
+   The website will provide instructions similar to:
+   ```bash
+   flash_init_cal 80 0x9271  # (Values depend on your device)
+   ```
 
-        sudo bladeRF-cli -i
-        info
+---
 
-    That outputs the serial number of your device.
+### **3. Automatic Calibration (AD9361)**
 
-    Go to:
+   With the **AD9361** RF transceiver in the **BladeRF 2.0 Micro**, calibration is now **automatic**. This includes calibration of:
+   - LMS parameters (IQ imbalance correction).
+   - DC offset correction for both RX and TX paths.
+   
+   There is no longer a need to manually run multiple calibration commands (`cal lms`, `cal dc rxtx`), as was required with previous models. The transceiver performs dynamic calibration automatically during operation.
 
-        https://www.nuand.com/calibration
+   However, you can still manually verify calibration using:
 
-    And enter your serial number.
-    The website tells you to run something like:
+   ```bash
+   sudo bladeRF-cli -i
+   cal lms
+   cal dc rxtx
+   ```
 
-        sudo bladeRF-cli -i
-        flash_init_cal 40 0x9271
+---
 
-    Actual values depend on your device and serial number.
+### **4. Tune the RX Gain Using the gNB (NR)**
 
-3. Calibrate the bladeRF device.
+   Run the softmodem and monitor the **gNB (NR)** logs for input signal strength and performance.  
+   Instructions are available on the OAI wiki:  
+   [OAI NR Documentation](https://gitlab.eurecom.fr/oai/openairinterface5g/wikis/T/basic).
 
-    We will work with band 7 on 2.68GHz with a bandwidth of 5 MHz (25 RBs).
+   In the logs, check the **input signal** values for time-domain signal power. This signal level should be around **30**. If the power level deviates, modify the `max_rxgain` parameter in your configuration file.
 
-    Plug the bladeRF device, then run:
+   **Configuration file:**  
+   `targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.51PRB.bladerf20xa0.conf`
 
-        sudo bladeRF-cli -i
-        set frequency tx 2680000000
-        set frequency rx 2560000000
-        set gain rx 60
-        set gain tx 60
-        set bandwidth 5000000
-        set samplerate 7680000
-        cal lms
-        cal lms
-        cal lms
-        cal dc rxtx
-        cal dc rxtx
-        cal dc rxtx
+   Update the following parameters in the file:
+   - `tracking_area_code`
+   - `plmn_list` (MCC, MNC, and MNC length)
+   - `mme_ip_address` (IP address of the EPC or 5GC core)
+   - `NETWORK_INTERFACES` (Set gNB interface addresses to match your EPC or 5GC setup)
 
-4. Tune the RX gain using the enb tracer.
+---
 
-    Run the softmodem and the 'enb' tracer. For instructions, see:
+### **5. Test the Setup**
 
-        https://gitlab.eurecom.fr/oai/openairinterface5g/wikis/T/basic
+   Connect a UE and run traffic tests (e.g., **iperf**).  
+   Expected throughput:
+   - **Downlink:** Over **16 Mbps**  
+   - **Uplink:** Over **8 Mbps**
 
-    In the enb window, check the 'input signal'. You should see some blue
-    signal as seen at:
+   In the OAI logs, you should observe entries with **PHR 40** and **CQI 15** if the setup is correctly optimized.
 
-        https://gitlab.eurecom.fr/oai/openairinterface5g/wikis/T/enb
+---
 
-    (the 'Time signal power' plot).
+### **6. Troubleshooting**
 
-    The level should be around 30.
+   Although calibration is automatic, you may still manually recalibrate if issues arise:
 
-    If it's not around 30 then edit your configuration file and modify
-    the value 'max_rxgain' in the section 'RUs'.
+   ```bash
+   sudo bladeRF-cli -i
+   cal lms
+   cal dc rxtx
+   ```
 
-    The configuration file to use is:
+   Ensure you are using appropriate radio equipment, including:
+   - **Duplexers**
+   - **Proper antennas**
+   - **A low-interference environment**
 
-        configuration/bladeRF/enb-band7-5mhz.conf
+   Check USB connections for stability and ensure the device is not overheating.
 
-    In the configuration file, you also need to set the correct values for:
+---
 
-        - tracking_area_code
-        - plmn_list: mcc, mnc, mnc_length
-        - mme_ip_address: this is the IP address used by the computer running
-          the softmodem to connect to the EPC
-        - NETWORK_INTERFACES: all the ENB*ADDRESS* variables have to point
-          to the IP address of the EPC machine
+### **7. Additional Notes**
 
-5. You're good to go.
+   - For high sample rates, ensure your system has sufficient USB 3.1 bandwidth and CPU resources.
+   - Monitor **RX/TX overruns** using logs and adjust parameters (e.g., sample rate, buffer size, and gain) as needed.
+   - Stay updated with the latest firmware and driver releases from Nuand's GitHub repository.
 
-    You can now connect a UE and pass some traffic. If everything is well
-    configured you can expect more than 16 Mb/s of throughput in the downlink
-    using iperf and more than 8 Mb/s in the uplink. Looking at the logs, you
-    should find lines containing 'PHR 40' and 'CQI 15'. If your values are
-    lower then your setup may need some adjustments.
+---
 
-6. In case of problems.
-
-    If the performance of the softmodem is very bad, you can stop it and
-    run the calibration again, without setting the parameters (frequencies,
-    gains, etc.). Just run:
-
-        sudo bladeRF-cli -i
-        cal lms
-        cal dc rxtx
-
-    That may help.
-
-    Be sure to use proper radio equipment (duplexer, antennas, clean
-    environment without interferences).
+This updated documentation ensures compatibility with the **BladeRF 2.0 Micro**, focusing on its automatic calibration capabilities and usage in modern **gNB (NR)** setups with OpenAirInterface.
