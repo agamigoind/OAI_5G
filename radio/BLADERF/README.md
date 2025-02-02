@@ -20,35 +20,11 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ---
 
-### **2. Update the Firmware and FPGA Image**
+### **2. Flashing the FPGA Image**
 
-   Download the latest firmware and FPGA images from Nuand's GitHub.
+   Download the latest FPGA images from Nuand's GitHub.
 
-   **Firmware:**  
-   - Visit: [FX3 Firmware Images](https://github.com/Nuand/bladeRF/wiki/FX3-Firmware)
-
-   **FPGA Image:**  
-   - Visit: [FPGA Images](https://github.com/Nuand/bladeRF/wiki/FPGA-Images)
-
-   Install the firmware and FPGA image:
-
-   ```bash
-   sudo bladeRF-cli -f bladeRF_fw_latest.img  # Install FX3 firmware
-   sudo bladeRF-cli -L hostedxA9-latest.rbf   # Install FPGA image (adjust model)
-   ```
-
-   Retrieve and verify device information:
-   ```bash
-   sudo bladeRF-cli -i
-   info
-   ```
-
-   Use the serial number to obtain calibration data from:
-   [Nuand Calibration Portal](https://www.nuand.com/calibration).  
-   The website will provide instructions similar to:
-   ```bash
-   flash_init_cal 80 0x9271  # (Values depend on your device)
-   ```
+    Follow this link :point_right: [2.Flashing](DOC/2.Flashing) to flash the board.
 
 ---
 
