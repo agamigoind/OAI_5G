@@ -1,4 +1,4 @@
-# BladeRF 2.0 Micro Documentation (Updated)
+# BladeRF 2.0 Micro Documentation
 
 ---
 
