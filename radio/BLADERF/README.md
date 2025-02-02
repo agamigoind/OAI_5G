@@ -57,7 +57,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
    **Note:** Run OAI's `./build_oai -I` to install the OAI libraries, the bladeRF dependencies were installed in the previous steps.
 
    ```
-   sudo cmake_targets/build_oai -I` 
+   sudo cmake_targets/build_oai -I
    ```
 
 
