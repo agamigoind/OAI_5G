@@ -86,6 +86,11 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - `mme_ip_address` (IP address of the EPC or 5GC core)
    - `NETWORK_INTERFACES` (Set gNB interface addresses to match your EPC or 5GC setup)
 
+   ```
+   CONFIG_FILE=targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.51PRB.bladerf20xa0.conf; \
+     sudo cmake_targets/ran_build/build/nr-softmodem -O ${CONFIG_FILE} --sa --continuous-tx -E
+   ```
+
 ---
 
 ### **6. Test the Setup**
@@ -124,6 +129,4 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - Monitor **RX/TX overruns** using logs and adjust parameters (e.g., sample rate, buffer size, and gain) as needed.
    - Stay updated with the latest firmware and driver releases from Nuand's GitHub repository.
 
----
 
-This updated documentation ensures compatibility with the **BladeRF 2.0 Micro**, focusing on its automatic calibration capabilities and usage in modern **gNB (NR)** setups with OpenAirInterface.
