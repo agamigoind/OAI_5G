@@ -15,7 +15,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - Install the latest **bladeRF 2.0 Micro** libraries and utilities.  
      It's recommended to build from source for the most recent updates.
 
-      Follow this link :point_right: [1.Installing](DOC/1.Installing) to find your Linux package Manager
+      Follow this link :point_right: [1.Installing](DOC/1.Installing) to find the installation procedure based on your Linux package Manager.
    
 
 ---
@@ -25,7 +25,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
    - Download the latest FPGA images from Nuand's GitHub.
 
 
-      Follow this link :point_right: [2.Flashing](DOC/2.Flashing) to flash the board.
+      Follow this link :point_right: [2.Flashing](DOC/2.Flashing#flashlight-flashing-board) to flash the board.
 
 ---
 
