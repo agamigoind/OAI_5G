@@ -106,14 +106,6 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ### **7. Troubleshooting**
 
-   Although calibration is automatic, you may still manually recalibrate if issues arise:
-
-   ```bash
-   sudo bladeRF-cli -i
-   cal lms
-   cal dc rxtx
-   ```
-
    Ensure you are using appropriate radio equipment, including:
    - **Duplexers**
    - **Proper antennas**
