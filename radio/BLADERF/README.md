@@ -73,7 +73,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
    Run the softmodem and monitor the **gNB (NR)** logs for input signal strength and performance.  
    Instructions are available on the OAI wiki:  
-   [OAI NR Documentation](https://gitlab.eurecom.fr/oai/openairinterface5g/wikis/T/basic).
+   [OAI NR Documentation](https://gitlab.eurecom.fr/oai/openairinterface5g/-/blob/develop/common/utils/T/DOC/T.md).
 
    In the logs, check the **input signal** values for time-domain signal power. This signal level should be around **30**. If the power level deviates, modify the `max_rxgain` parameter in your configuration file.
 
