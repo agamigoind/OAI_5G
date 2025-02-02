@@ -65,7 +65,7 @@ mkdir -p ~/.config/Nuand/bladeRF
 
 - Create a config file `~/.config/Nuand/bladeRF/bladerf.conf `
 
-:speaking_head: Adjust to your `HOME` folder,  i.e. `/Users/me`
+:speaking_head: Adjust the config file to your bladeRF `HOME` folder,  i.e. `/home/myuser/bladeRF`
 
 ```
 cat ~/.config/Nuand/bladeRF/bladerf.conf 
@@ -74,8 +74,7 @@ cat ~/.config/Nuand/bladeRF/bladerf.conf
 ```powershell
 # Load the hostedx40.rbf FPGA image, set the trim DAC, and
 # configure the frequency
-fpga /Users/me/Developer/bladerf_testing/bladerf/Flashing/hostedxA4-latest.rbf
-# fpga /Users/me/Developer/bladerf_testing/bladerf/Flashing/adsbxA4.rbf
+fpga /home/myuser/bladeRF/hostedxA4-latest.rbf
 # trimdac 592
 # frequency 2.4G
 ```
