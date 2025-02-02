@@ -78,7 +78,7 @@ bladeRF> version
 bladeRF> 
 ```
 
-## 4. Install via PPA (Optional)
+## 3. Install via PPA (Optional)
 
 Some Ubuntu versions may have a Personal Package Archive (PPA) available for BladeRF:
 
