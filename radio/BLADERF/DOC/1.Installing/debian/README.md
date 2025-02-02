@@ -15,7 +15,7 @@ sudo apt update
 sudo apt install -y build-essential cmake git pkg-config libusb-1.0-0-dev libtecla-dev
 ```
 > Returns
-```json
+```rest
 Hit:1 http://deb.debian.org/debian bookworm InRelease
 Hit:2 http://deb.debian.org/debian-security bookworm-security InRelease
 Hit:3 http://deb.debian.org/debian bookworm-updates InRelease
