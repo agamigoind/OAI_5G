@@ -52,7 +52,20 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
 ### **4. OAI and the bladeRF Libraries**
 
-   **Note:** Run OAI's `./build_oai -I` to install the OAI libraries. And manually install the bladeRF dependencies.
+1. Install the OAI libraries
+
+   **Note:** Run OAI's `./build_oai -I` to install the OAI libraries, the bladeRF dependencies were installed in the previous steps.
+
+   ```
+   `sudo cmake_targets/build_oai -I` 
+   ```
+
+
+2. Building gNodeB Executables, along with the bladeRF module
+
+   ```
+   sudo cmake_targets/build_oai --gNB -w BLADERF
+   ```
 
 ---
 
