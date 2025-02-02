@@ -80,7 +80,9 @@ fpga /Users/me/Developer/bladerf_testing/bladerf/Flashing/hostedxA4-latest.rbf
 # frequency 2.4G
 ```
 
-## That's it
+### That's it
+
+The rest of this section is provided as a Reference ONLY
 
 ---
 
