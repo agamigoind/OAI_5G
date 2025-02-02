@@ -24,7 +24,7 @@ As of **2025**, this documentation provides instructions for setting up and usin
 
    Download the latest FPGA images from Nuand's GitHub.
 
-    Follow this link :point_right: [2.Flashing](DOC/2.Flashing) to flash the board.
+      Follow this link :point_right: [2.Flashing](DOC/2.Flashing) to flash the board.
 
 ---
 
