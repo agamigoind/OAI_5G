@@ -32,7 +32,7 @@ Processing triggers for libc-bin (2.36-9+rpt2+deb12u9) ...
 git clone https://github.com/Nuand/bladeRF.git
 ```
 > Returns
-```powershell
+```terminal
 cd bladeRF
 Cloning into 'bladeRF'...
 remote: Enumerating objects: 38356, done.
