@@ -420,12 +420,12 @@ int device_init(openair0_device *device,
         brf->rx_timeout_ms                  = 2000;
         break;
     case 23040000: // 23.04 MHz
-        openair0_cfg->samples_per_packet    = 16384; // 16 KB packets
-        openair0_cfg->tx_sample_advance     = 0;
+      openair0_cfg->samples_per_packet    = 2048;
+      openair0_cfg->tx_sample_advance     = 0;
 
-        brf->num_buffers                    = 128; //  The number of buffers to use in the underlying data stream
-        brf->num_transfers                  = 64;  // the size of the underlying stream buffers, in samples
-        brf->rx_timeout_ms                  = 2000;
+      brf->num_buffers                    = 64; //  The number of buffers to use in the underlying data stream
+      brf->num_transfers                  = 16;  // the size of the underlying stream buffers, in samples
+      brf->rx_timeout_ms                  = 2000;
         break;
     case 15360000: // 15.36 MHz
         openair0_cfg->samples_per_packet    = 2048;
