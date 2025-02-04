@@ -292,7 +292,7 @@ void e1_bearer_context_modif(const e1ap_bearer_mod_req_t *req)
        * and update GTP tunnel outgoing addr and TEID */
       for (int k = 0; k < to_modif->numDlUpParam; k++) {
         in_addr_t addr = to_modif->DlUpParamList[k].tlAddress;
-        GtpuUpdateTunnelOutgoingAddressAndTeid(f1inst, req->gNB_cu_cp_ue_id, to_modif->id, addr, to_modif->DlUpParamList[k].teId);
+        GtpuUpdateTunnelOutgoingAddressAndTeid(f1inst, req->gNB_cu_cp_ue_id, to_modif->id, addr, to_modif->DlUpParamList[k].teId, NULL);
       }
     }
   }

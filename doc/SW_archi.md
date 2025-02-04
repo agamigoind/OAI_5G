@@ -456,6 +456,8 @@ this function will replace the xxx_create_tunnel_xxx() for various cases
 The parameters are: 
 1. outgoing TEid, associated with outpoing pair(rnti, id)
 2. incoming packets callback, incoming pair(rnti,id) and a callback function for incoming data 
+It returns a context of a GTP bearer that can be used to send GTP messages in a
+lockless fashion.
 
 ## outgoing packets 
 

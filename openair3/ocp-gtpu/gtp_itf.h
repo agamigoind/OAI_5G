@@ -107,23 +107,37 @@ typedef struct gtpv1u_gnb_delete_tunnel_req_s gtpv1u_gnb_delete_tunnel_req_t;
 
   int gtpv1u_update_ue_id(const instance_t instanceP, ue_id_t old_ue_id, ue_id_t new_ue_id);
 
-  // New API
-  teid_t newGtpuCreateTunnel(instance_t instance,
-                             ue_id_t ue_id,
-                             int incoming_bearer_id,
-                             int outgoing_rb_id,
-                             teid_t teid,
-                             int outgoing_qfi,
-                             transport_layer_addr_t remoteAddr,
-                             int port,
-                             gtpCallback callBack,
-                             gtpCallbackSDAP callBackSDAP);
 
-  void GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
-                                    ue_id_t ue_id,
-                                    ebi_t bearer_id,
-                                              in_addr_t newOutgoingAddr,
-                                              teid_t newOutgoingTeid);
+  // GTP bearer context (e.g., send data) and to look up UE info
+  typedef struct gtpv1u_bearer_s {
+    int sock_fd;
+    struct sockaddr_storage ip;
+    teid_t teid_incoming;
+    teid_t teid_outgoing;
+    uint16_t seqNum;
+    uint8_t npduNum;
+    int outgoing_qfi;
+  } gtpv1u_bearer_t;
+
+  // New API
+  int newGtpuCreateTunnel(instance_t instance,
+                          ue_id_t ue_id,
+                          int incoming_bearer_id,
+                          int outgoing_rb_id,
+                          teid_t teid,
+                          int outgoing_qfi,
+                          transport_layer_addr_t remoteAddr,
+                          int port,
+                          gtpCallback callBack,
+                          gtpCallbackSDAP callBackSDAP,
+                          gtpv1u_bearer_t *b);
+
+  int GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
+                                             ue_id_t ue_id,
+                                             ebi_t bearer_id,
+                                             in_addr_t newOutgoingAddr,
+                                             teid_t newOutgoingTeid,
+                                             gtpv1u_bearer_t *b);
 
   int newGtpuDeleteOneTunnel(instance_t instance, ue_id_t ue_id, int rb_id);
   int newGtpuDeleteAllTunnels(instance_t instance, ue_id_t ue_id);

@@ -134,8 +134,10 @@ static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *n
 
   /* create the local tunnel (i.e., as if we were UPF) */
   transport_layer_addr_t null_addr = {.length = 32};
-  teid_t teid_lo = newGtpuCreateTunnel(gtp_inst, ue_id, pdu_id, pdu_id, -1, -1, null_addr, ntohs(local.sin_port), NULL, NULL);
-  UP_TL_information_t tnl = {.teId = teid_lo};
+  gtpv1u_bearer_t b;
+  ret = newGtpuCreateTunnel(gtp_inst, ue_id, pdu_id, pdu_id, -1, -1, null_addr, ntohs(local.sin_port), NULL, NULL, &b);
+  DevAssert(ret == 0);
+  UP_TL_information_t tnl = {.teId = b.teid_incoming};
   memcpy(&tnl.tlAddress, &local.sin_addr, 4);
 
   /* Create a new bearer */
@@ -166,15 +168,18 @@ static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *n
   itti_free(TASK_GNB_APP, itti_bresp);
 
   /* print diagnostics */
+  gtpv1u_bearer_t bnew;
+  ret = GtpuUpdateTunnelOutgoingAddressAndTeid(gtp_inst, ue_id, pdu_id, addr_rm, teid_rm, &bnew);
+  DevAssert(ret == 0);
+  struct sockaddr_in *remote = (struct sockaddr_in *)&bnew.ip;
   char ip_lo[32] = {0};
   inet_ntop(AF_INET, &local.sin_addr, ip_lo, sizeof(ip_lo));
   char ip_rm[32] = {0};
-  inet_ntop(AF_INET, &addr_rm, ip_rm, sizeof(ip_rm));
-  GtpuUpdateTunnelOutgoingAddressAndTeid(gtp_inst, ue_id, pdu_id, addr_rm, teid_rm);
-  LOG_I(GNB_APP, "created NG-U, local %s/%x remote %s/%x (port %d)\n", ip_lo, teid_lo, ip_rm, teid_rm, local.sin_port);
+  inet_ntop(AF_INET, &remote->sin_addr, ip_rm, sizeof(ip_rm));
+  LOG_I(GNB_APP, "created NG-U, local %s/%x remote %s/%x (port %d)\n", ip_lo, bnew.teid_incoming, ip_rm, bnew.teid_outgoing, remote->sin_port);
 
   inet_ntop(AF_INET, &f1_up.tlAddress, ip_rm, sizeof(ip_rm));
-  LOG_I(GNB_APP, "CU-UP created F1-U, remove %s/%lx\n", ip_rm, f1_up.teId);
+  LOG_I(GNB_APP, "created F1-U, remote %s/%lx\n", ip_rm, f1_up.teId);
   return f1_up;
 }
 
@@ -245,9 +250,11 @@ static void setup_cuup_ue_f1(sctp_assoc_t assoc_id, uint32_t ue_id, instance_t g
   /* create tunnel (i.e., as if we were DU) */
   transport_layer_addr_t addr = {.length = 32};
   memcpy(addr.buffer, &rm.tlAddress, 4);
-  teid_t teid_lo = newGtpuCreateTunnel(gtp_inst, ue_id, drb_id, drb_id, rm.teId, -1, addr, port, recv_f1, NULL);
+  gtpv1u_bearer_t b;
+  int ret = newGtpuCreateTunnel(gtp_inst, ue_id, drb_id, drb_id, rm.teId, -1, addr, port, recv_f1, NULL, &b);
+  DevAssert(ret == 0);
 
-  up_params_t lo = {.teId = teid_lo, .cell_group_id = rm.cell_group_id};
+  up_params_t lo = {.teId = b.teid_incoming, .cell_group_id = rm.cell_group_id};
   inet_pton(AF_INET, ip, &lo.tlAddress);
 
   /* modify existing tunnel via E1 to pass in F1-U TEID */
