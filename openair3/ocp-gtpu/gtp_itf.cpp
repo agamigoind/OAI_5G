@@ -1068,6 +1068,8 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
     pthread_mutex_unlock(&globGtp.gtp_lock);
     return GTPNOK;
   }
+  ueidData_t uedata = tunnel->second;
+  pthread_mutex_unlock(&globGtp.gtp_lock);
 
   /* see TS 29.281 5.1 */
   // Minimum length of GTP-U header if non of the optional fields are present
@@ -1144,17 +1146,9 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
   // This context is not good for gtp
   // frame, ... has no meaning
   // manyother attributes may come from create tunnel
-  protocol_ctxt_t ctxt;
-  ctxt.module_id = 0;
-  ctxt.enb_flag = 1;
-  ctxt.instance = inst->addr.originInstance;
-  ctxt.rntiMaybeUEid = tunnel->second.ue_id;
-  ctxt.frame = 0;
-  ctxt.subframe = 0;
-  ctxt.eNB_index = 0;
-  ctxt.brOption = 0;
+  protocol_ctxt_t ctxt = { .enb_flag = 1, .rntiMaybeUEid = uedata.ue_id, };
   const srb_flag_t srb_flag = SRB_FLAG_NO;
-  const rb_id_t rb_id = tunnel->second.incoming_rb_id;
+  const rb_id_t rb_id = uedata.incoming_rb_id;
   const mui_t mui = RLC_MUI_UNDEFINED;
   const confirm_t confirm = RLC_SDU_CONFIRM_NO;
   const sdu_size_t sdu_buffer_size = msgBufLen - offset;
@@ -1165,9 +1159,9 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
   pthread_mutex_unlock(&globGtp.gtp_lock);
 
   if (sdu_buffer_size > 0) {
-    if (qfi != -1 && tunnel->second.callBackSDAP) {
-      if (!tunnel->second.callBackSDAP(&ctxt,
-                                       tunnel->second.ue_id,
+    if (qfi != -1 && uedata.callBackSDAP) {
+      if (!uedata.callBackSDAP(&ctxt,
+                                       uedata.ue_id,
                                        srb_flag,
                                        rb_id,
                                        mui,
@@ -1179,11 +1173,10 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
                                        &destinationL2Id,
                                        qfi,
                                        rqi,
-                                       tunnel->second.pdusession_id))
+                                       uedata.pdusession_id))
         LOG_E(GTPU, "[%d] down layer refused incoming packet\n", h);
     } else {
-      if (!tunnel->second
-               .callBack(&ctxt, srb_flag, rb_id, mui, confirm, sdu_buffer_size, sdu_buffer, mode, &sourceL2Id, &destinationL2Id))
+      if (!uedata.callBack(&ctxt, srb_flag, rb_id, mui, confirm, sdu_buffer_size, sdu_buffer, mode, &sourceL2Id, &destinationL2Id))
         LOG_E(GTPU, "[%d] down layer refused incoming packet\n", h);
     }
   }
