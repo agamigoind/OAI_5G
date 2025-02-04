@@ -197,6 +197,7 @@ static e1ap_bearer_mod_req_t get_bmod(uint32_t ue_id, long pdu_id, up_params_t u
 }
 
 static uint32_t count = 0;
+static uint32_t lost = 0;
 static uint64_t received = 0;
 /* @brief Received callback for F1-U
  *
@@ -220,7 +221,9 @@ static bool recv_f1(protocol_ctxt_t *ctxt,
   DevAssert((size - skip_bytes) % 4 == 0);
   if (payload[0] != count) {
     uint32_t diff = payload[0] - count;
-    LOG_W(GNB_APP, "packet loss: expected %d received %d diff %d\n", count, payload[0], diff);
+    lost += diff;
+    LOG_W(GNB_APP, "packet loss: expected %d received %d diff %d total lost %d\n", count, payload[0], diff, lost);
+    count += diff;
   }
   count++;
   received += size - skip_bytes;
@@ -299,6 +302,10 @@ int main(int argc, char *argv[])
   logInit();
   itti_init(TASK_MAX, tasks_info);
 
+  useconds_t sldur = 1;
+  size_t len = 3000;
+  size_t npackets = 500000;
+
   const char *ng_ip = "127.0.0.1";
   uint16_t ng_port = 2152;
   instance_t ng_inst = init_gtp(ng_ip, ng_port);
@@ -333,16 +340,14 @@ int main(int argc, char *argv[])
   clock_gettime(CLOCK_MONOTONIC, &t);
   uint32_t i = 0;
   uint64_t total = 0;
-  while (i < 500000) {
-    char buf[1400];
-    size_t len = sizeof(buf);
-    DevAssert(len == 1400);
+  char buf[len];
+  memset(buf, 0, len);
+  while (i < npackets) {
     uint32_t *p = (uint32_t *)buf;
-    for (int j = 0; j < 350; ++j)
-      *p++ = i;
+    *p++ = i;
     gtpv1uSendDirect(ng_inst, ue_id, 1, (uint8_t *)buf, len, false, false);
     total += len;
-    usleep(3);
+    usleep(sldur);
     i++;
   }
   struct timespec end;
@@ -357,6 +362,6 @@ int main(int argc, char *argv[])
   if (total == received)
     printf("received all data sent\n");
   else
-    printf("warning: missing %ld bytes\n", received - total);
+    printf("warning: missing %ld bytes (%.3f %%)\n", total - received, (double) (total - received) / total);
   LOG_I(GNB_APP, "bye\n");
 }
