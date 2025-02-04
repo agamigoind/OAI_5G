@@ -291,6 +291,39 @@ static gtpv1u_bearer_t create_adhoc_bearer(int socket, uint32_t peerIp, uint16_t
   return bearer;
 }
 
+void newGtpuSendMessageLockFree(gtpv1u_bearer_t *bearer, uint8_t *buf, size_t len, bool seqNumFlag, bool npduNumFlag)
+{
+  if (seqNumFlag)
+    bearer->seqNum++;
+
+  if (npduNumFlag)
+    bearer->npduNum++;
+
+  Gtpv1uExtHeaderT *opt_ext = NULL;
+  if (bearer->outgoing_qfi != -1) {
+    Gtpv1uExtHeaderT ext = {0};
+    opt_ext = &ext;
+    ext.ExtHeaderLen = 1; // in quad bytes  EXT_HDR_LNTH_OCTET_UNITS
+    ext.pdusession_cntr.spare = 0;
+    ext.pdusession_cntr.PDU_type = UL_PDU_SESSION_INFORMATION;
+    ext.pdusession_cntr.QFI = bearer->outgoing_qfi;
+    ext.pdusession_cntr.Reflective_QoS_activation = false;
+    ext.pdusession_cntr.Paging_Policy_Indicator = false;
+    ext.NextExtHeaderType = NO_MORE_EXT_HDRS;
+
+  }
+
+  gtpv1uCreateAndSendMsg(bearer,
+                         GTP_GPDU,
+                         buf,
+                         len,
+                         seqNumFlag,
+                         npduNumFlag,
+                         opt_ext ? PDU_SESSION_CONTAINER : NO_MORE_EXT_HDRS,
+                         (uint8_t *)&opt_ext,
+                         sizeof(*opt_ext));
+}
+
 void gtpv1uSendDirect(instance_t instance,
                       ue_id_t ue_id,
                       int bearer_id,

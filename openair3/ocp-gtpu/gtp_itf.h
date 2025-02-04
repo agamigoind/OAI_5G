@@ -143,6 +143,7 @@ typedef struct gtpv1u_gnb_delete_tunnel_req_s gtpv1u_gnb_delete_tunnel_req_t;
   int newGtpuDeleteAllTunnels(instance_t instance, ue_id_t ue_id);
   int newGtpuDeleteTunnels(instance_t instance, ue_id_t ue_id, int nbTunnels, pdusessionid_t *pdusession_id);
 
+  void newGtpuSendMessageLockFree(gtpv1u_bearer_t *bearer, uint8_t *buf, size_t len, bool seqNumFlag, bool npduNumFlag);
   void gtpv1uSendDirect(instance_t instance, ue_id_t ue_id, int bearer_id, uint8_t *buf, size_t len, bool seqNumFlag, bool npduNumFlag);
 
   instance_t gtpv1Init(openAddr_t context);

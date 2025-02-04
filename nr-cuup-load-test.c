@@ -124,7 +124,7 @@ static e1ap_bearer_setup_req_t get_breq(uint32_t ue_id, long pdu_id, long drb_id
 }
 
 /* @brief Set up the NG-U (north-bound) GTP tunnel, and inform CU-UP via E1 */
-static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *nssai, uint32_t ue_id, instance_t gtp_inst)
+static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *nssai, uint32_t ue_id, instance_t gtp_inst, gtpv1u_bearer_t *bret)
 {
   long pdu_id = 1;
   long drb_id = pdu_id + 3;
@@ -171,6 +171,7 @@ static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *n
   gtpv1u_bearer_t bnew;
   ret = GtpuUpdateTunnelOutgoingAddressAndTeid(gtp_inst, ue_id, pdu_id, addr_rm, teid_rm, &bnew);
   DevAssert(ret == 0);
+  *bret = bnew;
   struct sockaddr_in *remote = (struct sockaddr_in *)&bnew.ip;
   char ip_lo[32] = {0};
   inet_ntop(AF_INET, &local.sin_addr, ip_lo, sizeof(ip_lo));
@@ -339,7 +340,8 @@ int main(int argc, char *argv[])
   setup_cuup(&assoc_id, &nssai);
 
   uint32_t ue_id = 1;
-  up_params_t f1_up = setup_cuup_ue_ng(assoc_id, &nssai, ue_id, ng_inst);
+  gtpv1u_bearer_t bearer;
+  up_params_t f1_up = setup_cuup_ue_ng(assoc_id, &nssai, ue_id, ng_inst, &bearer);
   setup_cuup_ue_f1(assoc_id, ue_id, f1_inst, f1_ip, f1_port, f1_up);
 
   sleep(1);
@@ -353,7 +355,7 @@ int main(int argc, char *argv[])
   while (i < npackets) {
     uint32_t *p = (uint32_t *)buf;
     *p++ = i;
-    gtpv1uSendDirect(ng_inst, ue_id, 1, (uint8_t *)buf, len, false, false);
+    newGtpuSendMessageLockFree(&bearer, (uint8_t *)buf, len, false, false);
     total += len;
     usleep(sldur);
     i++;
