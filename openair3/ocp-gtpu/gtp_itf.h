@@ -132,6 +132,8 @@ typedef struct gtpv1u_gnb_delete_tunnel_req_s gtpv1u_gnb_delete_tunnel_req_t;
   void gtpv1uSendDirect(instance_t instance, ue_id_t ue_id, int bearer_id, uint8_t *buf, size_t len, bool seqNumFlag, bool npduNumFlag);
 
   instance_t gtpv1Init(openAddr_t context);
+  int gtpv1LocalIpv4Address(instance_t instance, struct sockaddr_in *sin);
+
   void *gtpv1uTask(void *args);
 
 #define GTPV1U_BEARER_OFFSET 3

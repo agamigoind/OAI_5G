@@ -124,18 +124,19 @@ static e1ap_bearer_setup_req_t get_breq(uint32_t ue_id, long pdu_id, long drb_id
 }
 
 /* @brief Set up the NG-U (north-bound) GTP tunnel, and inform CU-UP via E1 */
-static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *nssai, uint32_t ue_id, instance_t gtp_inst, const char *ip, uint16_t port)
+static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *nssai, uint32_t ue_id, instance_t gtp_inst)
 {
   long pdu_id = 1;
   long drb_id = pdu_id + 3;
-  in_addr_t addr_lo;
-  inet_pton(AF_INET, ip, &addr_lo);
+  struct sockaddr_in local;
+  int ret = gtpv1LocalIpv4Address(gtp_inst, &local);
+  DevAssert(ret == 0);
 
   /* create the local tunnel (i.e., as if we were UPF) */
   transport_layer_addr_t null_addr = {.length = 32};
-  teid_t teid_lo = newGtpuCreateTunnel(gtp_inst, ue_id, pdu_id, pdu_id, -1, -1, null_addr, port, NULL, NULL);
+  teid_t teid_lo = newGtpuCreateTunnel(gtp_inst, ue_id, pdu_id, pdu_id, -1, -1, null_addr, ntohs(local.sin_port), NULL, NULL);
   UP_TL_information_t tnl = {.teId = teid_lo};
-  memcpy(&tnl.tlAddress, &addr_lo, 4);
+  memcpy(&tnl.tlAddress, &local.sin_addr, 4);
 
   /* Create a new bearer */
   MessageDef *itti_breq = itti_alloc_new_message(TASK_GNB_APP, 0, E1AP_BEARER_CONTEXT_SETUP_REQ);
@@ -166,11 +167,11 @@ static up_params_t setup_cuup_ue_ng(sctp_assoc_t assoc_id, const e1ap_nssai_t *n
 
   /* print diagnostics */
   char ip_lo[32] = {0};
-  inet_ntop(AF_INET, &addr_lo, ip_lo, sizeof(ip_lo));
+  inet_ntop(AF_INET, &local.sin_addr, ip_lo, sizeof(ip_lo));
   char ip_rm[32] = {0};
   inet_ntop(AF_INET, &addr_rm, ip_rm, sizeof(ip_rm));
   GtpuUpdateTunnelOutgoingAddressAndTeid(gtp_inst, ue_id, pdu_id, addr_rm, teid_rm);
-  LOG_I(GNB_APP, "CU-UP created NG-U, local %s/%x remote %s/%x (port %d)\n", ip_lo, teid_lo, ip_rm, teid_rm, port);
+  LOG_I(GNB_APP, "created NG-U, local %s/%x remote %s/%x (port %d)\n", ip_lo, teid_lo, ip_rm, teid_rm, local.sin_port);
 
   inet_ntop(AF_INET, &f1_up.tlAddress, ip_rm, sizeof(ip_rm));
   LOG_I(GNB_APP, "CU-UP created F1-U, remove %s/%lx\n", ip_rm, f1_up.teId);
@@ -331,7 +332,7 @@ int main(int argc, char *argv[])
   setup_cuup(&assoc_id, &nssai);
 
   uint32_t ue_id = 1;
-  up_params_t f1_up = setup_cuup_ue_ng(assoc_id, &nssai, ue_id, ng_inst, ng_ip, ng_port);
+  up_params_t f1_up = setup_cuup_ue_ng(assoc_id, &nssai, ue_id, ng_inst);
   setup_cuup_ue_f1(assoc_id, ue_id, f1_inst, f1_ip, f1_port, f1_up);
 
   sleep(1);

@@ -130,9 +130,13 @@ class gtpEndPoint {
   // we use the same port number for source and destination address
   // this allow using non standard gtp port number (different from 2152)
   // and so, for example tu run 4G and 5G cores on one system
-  tcp_udp_port_t get_dstport()
+  uint16_t get_dstport()
   {
-    return (tcp_udp_port_t)atol(addr.destinationService);
+    return (uint16_t)atol(addr.destinationService);
+  }
+  uint16_t get_srcport()
+  {
+    return (uint16_t)atol(addr.originService);
   }
 };
 
@@ -517,6 +521,19 @@ instance_t gtpv1Init(openAddr_t context)
   pthread_mutex_unlock(&globGtp.gtp_lock);
   LOG_I(GTPU, "Created gtpu instance id: %d\n", id);
   return id;
+}
+
+int gtpv1LocalIpv4Address(instance_t instance, struct sockaddr_in *sin_out)
+{
+  pthread_mutex_lock(&globGtp.gtp_lock);
+  getInstRetInt(compatInst(instance));
+  // TODO only IPv4 address
+  struct sockaddr_in sin = {.sin_family = AF_INET, .sin_port = inst->get_srcport()};
+  memcpy(&sin.sin_addr, inst->foundAddr, inst->foundAddrLen);
+  pthread_mutex_unlock(&globGtp.gtp_lock);
+  *sin_out = sin;
+
+  return !GTPNOK;
 }
 
 void GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
