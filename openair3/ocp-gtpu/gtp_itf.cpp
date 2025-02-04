@@ -115,6 +115,7 @@ class gtpEndPoint {
   int foundAddrLen;
   int ipVersion;
   map<uint64_t, teidData_t> ue2te_mapping;
+  map<uint64_t, ueidData_t> te2ue_mapping;
   // we use the same port number for source and destination address
   // this allow using non standard gtp port number (different from 2152)
   // and so, for example tu run 4G and 5G cores on one system
@@ -133,7 +134,6 @@ class gtpEndPoints {
   pthread_mutex_t gtp_lock = PTHREAD_MUTEX_INITIALIZER;
   // the instance id will be the Linux socket handler, as this is uniq
   map<uint64_t, gtpEndPoint> instances;
-  map<uint64_t, ueidData_t> te2ue_mapping;
   gtpEndPoints()
   {
     unsigned int seed;
@@ -593,17 +593,20 @@ int newGtpuCreateTunnel(instance_t instance,
 
   teid_t incoming_teid = gtpv1uNewTeid();
 
+  /*
+   * TODO
   while (globGtp.te2ue_mapping.find(incoming_teid) != globGtp.te2ue_mapping.end()) {
     LOG_W(GTPU, "[%ld] generated a random Teid that exists, re-generating (%x)\n", instance, incoming_teid);
     incoming_teid = gtpv1uNewTeid();
   };
+  */
 
-  globGtp.te2ue_mapping[incoming_teid].ue_id = ue_id;
-  globGtp.te2ue_mapping[incoming_teid].incoming_rb_id = incoming_bearer_id;
-  globGtp.te2ue_mapping[incoming_teid].outgoing_teid = outgoing_teid;
-  globGtp.te2ue_mapping[incoming_teid].callBack = callBack;
-  globGtp.te2ue_mapping[incoming_teid].callBackSDAP = callBackSDAP;
-  globGtp.te2ue_mapping[incoming_teid].pdusession_id = (uint8_t)outgoing_bearer_id;
+  inst->te2ue_mapping[incoming_teid].ue_id = ue_id;
+  inst->te2ue_mapping[incoming_teid].incoming_rb_id = incoming_bearer_id;
+  inst->te2ue_mapping[incoming_teid].outgoing_teid = outgoing_teid;
+  inst->te2ue_mapping[incoming_teid].callBack = callBack;
+  inst->te2ue_mapping[incoming_teid].callBackSDAP = callBackSDAP;
+  inst->te2ue_mapping[incoming_teid].pdusession_id = (uint8_t)outgoing_bearer_id;
 
   gtpv1u_bearer_t bearer = {
     .sock_fd = compatInst(instance),
@@ -802,8 +805,8 @@ int gtpv1u_update_ue_id(const instance_t instanceP, ue_id_t old_ue_id, ue_id_t n
 
   for (unsigned i = 0; i < it->second.bearers.size(); ++i) {
     teid_t incoming_teid = inst->ue2te_mapping[old_ue_id].bearers[i].teid_incoming;
-    if (globGtp.te2ue_mapping[incoming_teid].ue_id == old_ue_id) {
-      globGtp.te2ue_mapping[incoming_teid].ue_id = new_ue_id;
+    if (inst->te2ue_mapping[incoming_teid].ue_id == old_ue_id) {
+      inst->te2ue_mapping[incoming_teid].ue_id = new_ue_id;
     }
   }
 
@@ -840,7 +843,7 @@ int newGtpuDeleteOneTunnel(instance_t instance, ue_id_t ue_id, int rb_id)
     return !GTPNOK;
   }
   int teid = rb_it->second.teid_incoming;
-  globGtp.te2ue_mapping.erase(teid);
+  inst->te2ue_mapping.erase(teid);
   ue_it->second.bearers.erase(rb_id);
   pthread_mutex_unlock(&globGtp.gtp_lock);
   LOG_I(GTPU, "Deleted tunnel TEID %d (RB %d) for ue id %ld, remaining bearers:\n", teid, rb_id, ue_id);
@@ -859,7 +862,7 @@ int newGtpuDeleteAllTunnels(instance_t instance, ue_id_t ue_id)
   int nb = 0;
 
   for (auto j = ptrUe->second.bearers.begin(); j != ptrUe->second.bearers.end(); ++j) {
-    globGtp.te2ue_mapping.erase(j->second.teid_incoming);
+    inst->te2ue_mapping.erase(j->second.teid_incoming);
     nb++;
   }
 
@@ -892,7 +895,7 @@ int gtpv1u_delete_s1u_tunnel(const instance_t instance, const gtpv1u_enb_delete_
             req_pP->rnti,
             req_pP->eps_bearer_id[i]);
     } else {
-      globGtp.te2ue_mapping.erase(ptr2->second.teid_incoming);
+      inst->te2ue_mapping.erase(ptr2->second.teid_incoming);
       nb++;
     }
   }
@@ -926,7 +929,7 @@ int newGtpuDeleteTunnels(instance_t instance, ue_id_t ue_id, int nbTunnels, pdus
     if (ptr2 == ptrUe->second.bearers.end()) {
       LOG_E(GTPU, "[%ld] GTP-U instance: delete of not existing tunnel UE ID:RAB: %ld/%x\n", instance, ue_id, pdusession_id[i]);
     } else {
-      globGtp.te2ue_mapping.erase(ptr2->second.teid_incoming);
+      inst->te2ue_mapping.erase(ptr2->second.teid_incoming);
       nb++;
     }
   }
@@ -1010,9 +1013,9 @@ static int Gtpv1uHandleEndMarker(int h, uint8_t *msgBuf, uint32_t msgBufLen, uin
   // the socket Linux file handler is the instance id
   getInstRetInt(h);
 
-  auto tunnel = globGtp.te2ue_mapping.find(ntohl(msgHdr->teid));
+  auto tunnel = inst->te2ue_mapping.find(ntohl(msgHdr->teid));
 
-  if (tunnel == globGtp.te2ue_mapping.end()) {
+  if (tunnel == inst->te2ue_mapping.end()) {
     LOG_E(GTPU, "[%d] Received a incoming packet on unknown teid (%x) Dropping!\n", h, msgHdr->teid);
     pthread_mutex_unlock(&globGtp.gtp_lock);
     return GTPNOK;
@@ -1058,9 +1061,9 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
   pthread_mutex_lock(&globGtp.gtp_lock);
   // the socket Linux file handler is the instance id
   getInstRetInt(h);
-  auto tunnel = globGtp.te2ue_mapping.find(ntohl(msgHdr->teid));
+  auto tunnel = inst->te2ue_mapping.find(ntohl(msgHdr->teid));
 
-  if (tunnel == globGtp.te2ue_mapping.end()) {
+  if (tunnel == inst->te2ue_mapping.end()) {
     LOG_E(GTPU, "[%d] Received a incoming packet on unknown teid (%x) Dropping!\n", h, ntohl(msgHdr->teid));
     pthread_mutex_unlock(&globGtp.gtp_lock);
     return GTPNOK;
@@ -1220,7 +1223,7 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
      * 1 octet for padding + 1 octet for next extension header type,
      * according to TS 38.425: Fig. 5.5.2.2-1 and section 5.5.3.24*/
     extensionHeader->length = 1 + sizeof(DlDataDeliveryStatus_flagsT) + 3 + 1 + 1;
-    uint32_t teid = globGtp.te2ue_mapping[ntohl(msgHdr->teid)].outgoing_teid;
+    uint32_t teid = inst->te2ue_mapping[ntohl(msgHdr->teid)].outgoing_teid;
     gtpv1u_bearer_t bearer = create_adhoc_bearer(h, peerIp, peerPort, teid, 0);
     gtpv1uCreateAndSendMsg(&bearer,
                            GTP_GPDU,
