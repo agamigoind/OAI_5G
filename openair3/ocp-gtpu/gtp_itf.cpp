@@ -11,6 +11,7 @@ extern "C" {
 #include <netdb.h>
 
 #include "common/platform_types.h"
+#include "common/utils/system.h"
 #include <openair3/UTILS/conversions.h>
 #include "common/utils/LOG/log.h"
 #include <common/utils/ocp_itti/intertask_interface.h>
@@ -108,12 +109,18 @@ typedef struct {
   int pdusession_id;
 } ueidData_t;
 
+typedef struct {
+  int h;
+  pthread_t t;
+} gtpThread_t;
+
 class gtpEndPoint {
  public:
   openAddr_t addr;
   uint8_t foundAddr[20];
   int foundAddrLen;
   int ipVersion;
+  gtpThread_t thrData;
   map<uint64_t, teidData_t> ue2te_mapping;
   map<uint64_t, ueidData_t> te2ue_mapping;
   // we use the same port number for source and destination address
@@ -511,14 +518,12 @@ instance_t gtpv1Init(openAddr_t context)
 {
   pthread_mutex_lock(&globGtp.gtp_lock);
   int id = udpServerSocket(context);
-
-  if (id >= 0) {
-    itti_subscribe_event_fd(TASK_GTPV1_U, id);
-  } else
-    LOG_E(GTPU, "can't create GTP-U instance\n");
-
   pthread_mutex_unlock(&globGtp.gtp_lock);
-  LOG_I(GTPU, "Created gtpu instance id: %d\n", id);
+
+  if (id >= 0)
+    LOG_I(GTPU, "Created gtpu instance id: %d\n", id);
+  else
+    LOG_E(GTPU, "can't create GTP-U instance\n");
   return id;
 }
 
@@ -535,6 +540,7 @@ int gtpv1LocalIpv4Address(instance_t instance, struct sockaddr_in *sin_out)
   return !GTPNOK;
 }
 
+void* gtpv1uReceiver(void *thr);
 int GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
                                            ue_id_t ue_id,
                                            ebi_t bearer_id,
@@ -554,6 +560,13 @@ int GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
     return GTPNOK;
   }
 
+  if (inst->thrData.t) {
+    pthread_cancel(inst->thrData.t);
+    pthread_join(inst->thrData.t, NULL);
+    LOG_W(GTPU, "stopped thread %ld\n", inst->thrData.t);
+  }
+
+  // update map
   struct sockaddr_in *sockaddr = (struct sockaddr_in *)&ptr2->second.ip;
   sockaddr->sin_family = AF_INET;
   memcpy(&sockaddr->sin_addr, &newOutgoingAddr, sizeof(newOutgoingAddr));
@@ -566,6 +579,11 @@ int GtpuUpdateTunnelOutgoingAddressAndTeid(instance_t instance,
         IPV4_ADDR_FORMAT(sockaddr->sin_addr.s_addr));
   if (b)
     *b = ptr2->second;
+
+  inst->thrData.h = instance;
+  const char *name = "GTPrx";
+  threadCreate(&inst->thrData.t, gtpv1uReceiver, &inst->thrData, (char *)name, -1, -1);
+
   pthread_mutex_unlock(&globGtp.gtp_lock);
   return !GTPNOK;
 }
@@ -585,6 +603,14 @@ int newGtpuCreateTunnel(instance_t instance,
   pthread_mutex_lock(&globGtp.gtp_lock);
   getInstRetInt(compatInst(instance));
   auto it = inst->ue2te_mapping.find(ue_id);
+
+  bool restartThread = outgoing_bearer_id > 0;
+
+  if (restartThread && inst->thrData.t > 0) {
+    pthread_cancel(inst->thrData.t);
+    pthread_join(inst->thrData.t, NULL);
+    LOG_W(GTPU, "stopped thread %ld\n", inst->thrData.t);
+  }
 
   if (it != inst->ue2te_mapping.end() && it->second.bearers.find(outgoing_bearer_id) != it->second.bearers.end()) {
     LOG_W(GTPU, "[%ld] Create a config for a already existing GTP tunnel (ue id %lu)\n", instance, ue_id);
@@ -640,6 +666,12 @@ int newGtpuCreateTunnel(instance_t instance,
   inst->ue2te_mapping[ue_id].bearers[outgoing_bearer_id] = bearer;
   if (b)
     *b = bearer;
+
+  if (restartThread) {
+    inst->thrData.h = instance;
+    const char *name = "GTPrx";
+    threadCreate(&inst->thrData.t, gtpv1uReceiver, &inst->thrData, (char *)name, -1, -1);
+  }
   pthread_mutex_unlock(&globGtp.gtp_lock);
   char ip4[INET_ADDRSTRLEN];
   char ip6[INET6_ADDRSTRLEN];
@@ -1058,18 +1090,15 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
     return GTPNOK;
   }
 
-  pthread_mutex_lock(&globGtp.gtp_lock);
   // the socket Linux file handler is the instance id
   getInstRetInt(h);
   auto tunnel = inst->te2ue_mapping.find(ntohl(msgHdr->teid));
 
   if (tunnel == inst->te2ue_mapping.end()) {
     LOG_E(GTPU, "[%d] Received a incoming packet on unknown teid (%x) Dropping!\n", h, ntohl(msgHdr->teid));
-    pthread_mutex_unlock(&globGtp.gtp_lock);
     return GTPNOK;
   }
   ueidData_t uedata = tunnel->second;
-  pthread_mutex_unlock(&globGtp.gtp_lock);
 
   /* see TS 29.281 5.1 */
   // Minimum length of GTP-U header if non of the optional fields are present
@@ -1233,29 +1262,33 @@ static int Gtpv1uHandleGpdu(int h, uint8_t *msgBuf, uint32_t msgBufLen, uint16_t
   return !GTPNOK;
 }
 
-void gtpv1uReceiver(int h)
+void* gtpv1uReceiver(void *thr)
 {
+  gtpThread_t *gt = (gtpThread_t *)thr;
+  int h = gt->h;
+
   uint8_t udpData[65536];
   int udpDataLen;
   socklen_t from_len;
   struct sockaddr_in addr;
   from_len = (socklen_t)sizeof(struct sockaddr_in);
 
+  while (true) {
   if ((udpDataLen = recvfrom(h, udpData, sizeof(udpData), 0, (struct sockaddr *)&addr, &from_len)) < 0) {
     LOG_E(GTPU, "[%d] Recvfrom failed (%s)\n", h, strerror(errno));
-    return;
+    return NULL;
   } else if (udpDataLen == 0) {
     LOG_W(GTPU, "[%d] Recvfrom returned 0\n", h);
-    return;
+    return NULL;
   } else {
     if (udpDataLen < (int)sizeof(Gtpv1uMsgHeaderT)) {
       LOG_W(GTPU, "[%d] received malformed gtp packet \n", h);
-      return;
+      return NULL;
     }
     Gtpv1uMsgHeaderT *msg = (Gtpv1uMsgHeaderT *)udpData;
     if ((int)(ntohs(msg->msgLength) + sizeof(Gtpv1uMsgHeaderT)) != udpDataLen) {
       LOG_W(GTPU, "[%d] received malformed gtp packet length\n", h);
-      return;
+      return NULL;
     }
     LOG_D(GTPU, "[%d] Received GTP data, msg type: %x\n", h, msg->msgType);
     switch (msg->msgType) {
@@ -1287,6 +1320,9 @@ void gtpv1uReceiver(int h)
         break;
     }
   }
+  }
+  LOG_W(GTPU, "exiting thread\n");
+  return NULL;
 }
 
 #include <openair2/ENB_APP/enb_paramdef.h>
@@ -1344,13 +1380,6 @@ void *gtpv1uTask(void *args)
 
       AssertFatal(EXIT_SUCCESS == itti_free(TASK_GTPV1_U, message_p), "Failed to free memory!\n");
     }
-
-    struct epoll_event events[20];
-    int nb_events = itti_get_events(TASK_GTPV1_U, events, 20);
-
-    for (int i = 0; i < nb_events; i++)
-      if ((events[i].events & EPOLLIN))
-        gtpv1uReceiver(events[i].data.fd);
   }
 
   return NULL;
