@@ -650,25 +650,40 @@ static int
 retrieve_ldpc_enc_op(struct rte_bbdev_enc_op **ops,
                      nrLDPC_slot_encoding_parameters_t *nrLDPC_slot_encoding_parameters)
 {
+  uint8_t *p_out = NULL;
   unsigned int j = 0;
   for (unsigned int h = 0; h < nrLDPC_slot_encoding_parameters->nb_TBs; ++h){
+    int E_sum = 0;
+    int bit_offset = 0;
+    int byte_offset = 0;
+    p_out = nrLDPC_slot_encoding_parameters->TBs[h].segments[0].output;
     for (unsigned int i = 0; i < nrLDPC_slot_encoding_parameters->TBs[h].C; ++i) {
       struct rte_bbdev_op_data *output = &ops[j]->ldpc_enc.output;
       struct rte_mbuf *m = output->data;
       uint16_t data_len = rte_pktmbuf_data_len(m) - output->offset;
-      uint8_t *out = nrLDPC_slot_encoding_parameters->TBs[h].segments[i].output;
       const char *data = m->buf_addr + m->data_off;
-      const char *end = data + data_len;
-      while (data < end) {
-        uint8_t byte = *data++; // get the current byte
-        for (int bit = 7; bit >= 0; --bit) {
-          *out++ = (byte >> bit) & 1; // extract each bit
+      if (bit_offset == 0) {
+        memcpy(&p_out[byte_offset], data, data_len);
+      } else {
+        uint8_t carry = 0;
+        p_out[byte_offset - 1] |= data[0] >> bit_offset;
+        for (size_t i = 0; i < data_len; i++) {
+          uint8_t current = *data++;
+          p_out[byte_offset + i] = (current << (8 - bit_offset));
+          if (i != 0) {
+            carry = current >> bit_offset;
+            p_out[byte_offset + i - 1] |= carry;
+          }
         }
       }
+      E_sum += nrLDPC_slot_encoding_parameters->TBs[h].segments[i].E;
+      byte_offset = (E_sum + 7) / 8;
+      bit_offset = E_sum % 8;
       rte_pktmbuf_free(m);
       rte_pktmbuf_free(ops[j]->ldpc_enc.input.data);
       ++j;
     }
+    reverse_bits_u8(p_out, byte_offset, p_out);
   }
   return 0;
 }
@@ -815,6 +830,8 @@ static int pmd_lcore_ldpc_enc(void *arg)
   AssertFatal(ret == 0, "Allocation failed for %d ops", num_segments);
 
   set_ldpc_enc_op(ops_enq, 0, bufs->inputs, bufs->hard_outputs, nrLDPC_slot_encoding_parameters);
+  if(nrLDPC_slot_encoding_parameters->tprep != NULL) stop_meas(nrLDPC_slot_encoding_parameters->tprep);
+  if(nrLDPC_slot_encoding_parameters->tparity != NULL) start_meas(nrLDPC_slot_encoding_parameters->tparity);
   for (enq = 0, deq = 0; enq < num_segments;) {
     num_to_enq = num_segments;
     if (unlikely(num_segments - enq < num_to_enq))
@@ -828,10 +845,11 @@ static int pmd_lcore_ldpc_enc(void *arg)
     time_out++;
     DevAssert(time_out <= TIME_OUT_POLL);
   }
-
+  if(nrLDPC_slot_encoding_parameters->tparity != NULL) stop_meas(nrLDPC_slot_encoding_parameters->tparity);
+  if(nrLDPC_slot_encoding_parameters->toutput != NULL) start_meas(nrLDPC_slot_encoding_parameters->toutput);
   ret = retrieve_ldpc_enc_op(ops_deq, nrLDPC_slot_encoding_parameters);
   AssertFatal(ret == 0, "Failed to retrieve LDPC encoding op!");
-
+  if(nrLDPC_slot_encoding_parameters->toutput != NULL) stop_meas(nrLDPC_slot_encoding_parameters->toutput);
   rte_bbdev_enc_op_free_bulk(ops_enq, num_segments);
   rte_free(ops_enq);
   rte_free(ops_deq);
@@ -1009,7 +1027,6 @@ int32_t nrLDPC_coding_decoder(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_dec
   for(uint16_t h = 0; h < nrLDPC_slot_decoding_parameters->nb_TBs; ++h){
     num_blocks += nrLDPC_slot_decoding_parameters->TBs[h].C;
   }
-  uint16_t z_ol[LDPC_MAX_CB_SIZE] __attribute__((aligned(16)));
   /* It is not unlikely that l_ol becomes big enough to overflow the stack
    * If you observe this behavior then move it to the heap
    * Then you would better do a persistent allocation to limit the overhead
@@ -1039,12 +1056,13 @@ int32_t nrLDPC_coding_decoder(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_dec
   int offset = 0;
   for(uint16_t h = 0; h < nrLDPC_slot_decoding_parameters->nb_TBs; ++h){
     for (int r = 0; r < nrLDPC_slot_decoding_parameters->TBs[h].C; r++) {
-      memcpy(z_ol, nrLDPC_slot_decoding_parameters->TBs[h].segments[r].llr, nrLDPC_slot_decoding_parameters->TBs[h].segments[r].E * sizeof(uint16_t));
-      simde__m128i *pv_ol128 = (simde__m128i *)z_ol;
+      nrLDPC_segment_decoding_parameters_t ldpc_segment =  nrLDPC_slot_decoding_parameters->TBs[h].segments[r];
+      simde__m128i *pv_ol128 = (simde__m128i *)ldpc_segment.llr;
       simde__m128i *pl_ol128 = (simde__m128i *)&l_ol[offset];
-      int kc = nrLDPC_slot_decoding_parameters->TBs[h].BG == 2 ? 52 : 68;
-      for (int i = 0, j = 0; j < ((kc * nrLDPC_slot_decoding_parameters->TBs[h].Z) >> 4) + 1; i += 2, j++) {
-        pl_ol128[j] = simde_mm_packs_epi16(pv_ol128[i], pv_ol128[i + 1]);
+      for (int i = 0, j = 0; j < (ldpc_segment.E >> 4) + 1; i += 2, j++) {
+        simde__m128i seg1 = simde_mm_loadu_si128(pv_ol128++);
+        simde__m128i seg2 = simde_mm_loadu_si128(pv_ol128++);
+        pl_ol128[j] = simde_mm_packs_epi16(seg1, seg2);
       }
       offset += LDPC_MAX_CB_SIZE;
     }
@@ -1074,6 +1092,7 @@ int32_t nrLDPC_coding_decoder(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_dec
 int32_t nrLDPC_coding_encoder(nrLDPC_slot_encoding_parameters_t *nrLDPC_slot_encoding_parameters)
 {
   pthread_mutex_lock(&encode_mutex);
+  if(nrLDPC_slot_encoding_parameters->tprep != NULL) start_meas(nrLDPC_slot_encoding_parameters->tprep);
   // hardcoded to use the first found board
   struct active_device *ad = active_devs;
   int ret;
