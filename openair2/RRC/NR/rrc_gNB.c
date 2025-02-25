@@ -579,13 +579,11 @@ static NR_ReportConfigToAddMod_t *prepare_a3_event_report(const nr_a3_event_t *a
   return rc_A3;
 }
 
-static int rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
-                                             gNB_RRC_UE_t *UE,
-                                             uint8_t xid,
-                                             struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList *nas_messages,
-                                             uint8_t *buf,
-                                             int max_len,
-                                             bool reestablish)
+static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
+                                                      gNB_RRC_UE_t *UE,
+                                                      uint8_t xid,
+                                                      struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList *nas_messages,
+                                                      bool reestablish)
 {
   NR_CellGroupConfig_t *cellGroupConfig = UE->masterCellGroup;
   nr_rrc_du_container_t *du = get_du_for_ue(rrc, UE->rrc_ue_id);
@@ -648,24 +646,28 @@ static int rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
   NR_SRB_ToAddModList_t *SRBs = createSRBlist(UE, reestablish);
   NR_DRB_ToAddModList_t *DRBs = createDRBlist(UE, reestablish);
 
-  int size = do_RRCReconfiguration(UE->rrc_ue_id,
-                                   buf,
-                                   max_len,
-                                   xid,
-                                   SRBs,
-                                   DRBs,
-                                   UE->DRB_ReleaseList,
-                                   NULL,
-                                   measconfig,
-                                   nas_messages,
-                                   cellGroupConfig);
-  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, (char *)buf, size, "[MSG] RRC Reconfiguration\n");
+  nr_rrc_reconfig_param_t params = {.cell_group_config = cellGroupConfig,
+                                    .dedicated_nas_message_list = nas_messages,
+                                    .drb_config_list = DRBs,
+                                    .drb_release_list = UE->DRB_ReleaseList,
+                                    .masterKeyUpdate = false,
+                                    .nextHopChainingCount = UE->nh_ncc,
+                                    .meas_config = measconfig,
+                                    .srb_config_list = SRBs,
+                                    .transaction_id = xid};
+  byte_array_t msg = do_RRCReconfiguration(&params);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", UE->rrc_ue_id);
+    return msg;
+  }
+
+  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, msg.buf, msg.len, "[MSG] RRC Reconfiguration\n");
   freeSRBlist(SRBs);
   freeDRBlist(DRBs);
   ASN_STRUCT_FREE(asn_DEF_NR_DRB_ToReleaseList, UE->DRB_ReleaseList);
   UE->DRB_ReleaseList = NULL;
 
-  return size;
+  return msg;
 }
 
 static void rrc_gNB_generate_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t *ue_p)
@@ -704,14 +706,17 @@ static void rrc_gNB_generate_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_
   for (int i = 0; i < ue_p->nb_of_pdusessions; i++)
     clear_nas_pdu(&ue_p->pduSession[i].param.nas_pdu);
 
-  uint8_t buffer[NR_RRC_BUF_SIZE] = {0};
   // TODO refactor dedicatedNAS_MessageList
-  int size = rrc_gNB_encode_RRCReconfiguration(rrc, ue_p, xid, dedicatedNAS_MessageList, buffer, sizeof(buffer), false);
-  DevAssert(size > 0 && size <= sizeof(buffer));
+  byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, ue_p, xid, dedicatedNAS_MessageList, false);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
+    return;
+  }
 
-  LOG_UE_DL_EVENT(ue_p, "Generate RRCReconfiguration (bytes %d, xid %d)\n", size, xid);
+  LOG_UE_DL_EVENT(ue_p, "Generate RRCReconfiguration (bytes %ld, xid %d)\n", msg.len, xid);
   const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, msg.buf, msg.len);
+  free_byte_array(msg);
 }
 
 void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t *ue_p)
@@ -800,28 +805,28 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
   }
 
   NR_DRB_ToAddModList_t *DRBs = createDRBlist(ue_p, false);
-  uint8_t buffer[NR_RRC_BUF_SIZE];
-  int size = do_RRCReconfiguration(ue_p->rrc_ue_id,
-                                   buffer,
-                                   NR_RRC_BUF_SIZE,
-                                   xid,
-                                   NULL,
-                                   DRBs,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   dedicatedNAS_MessageList,
-                                   NULL);
-  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, (char *)buffer, size, "[MSG] RRC Reconfiguration\n");
+  nr_rrc_reconfig_param_t params = {.cell_group_config = NULL,
+                                    .dedicated_nas_message_list = dedicatedNAS_MessageList,
+                                    .drb_config_list = DRBs,
+                                    .masterKeyUpdate = false,
+                                    .nextHopChainingCount = ue_p->nh_ncc,
+                                    .transaction_id = xid};
+  byte_array_t msg = do_RRCReconfiguration(&params);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
+    return;
+  }
+  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, msg.buf, msg.len, "[MSG] RRC Reconfiguration\n");
   freeDRBlist(DRBs);
 
   /* Free all NAS PDUs */
   for (int i = 0; i < ue_p->nb_of_pdusessions; i++)
     clear_nas_pdu(&ue_p->pduSession[i].param.nas_pdu);
 
-  LOG_I(NR_RRC, "UE %d: Generate RRCReconfiguration (bytes %d)\n", ue_p->rrc_ue_id, size);
+  LOG_I(NR_RRC, "UE %d: Generate RRCReconfiguration (bytes %ld)\n", ue_p->rrc_ue_id, msg.len);
   const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, msg.buf, msg.len);
+  free_byte_array(msg);
 }
 
 //-----------------------------------------------------------------------------
@@ -852,19 +857,17 @@ void rrc_gNB_generate_dedicatedRRCReconfiguration_release(gNB_RRC_INST *rrc,
     LOG_W(NR_RRC,"dedlicated NAS list is empty\n");
   }
 
-  uint8_t buffer[NR_RRC_BUF_SIZE] = {0};
-  int size = do_RRCReconfiguration(ue_p->rrc_ue_id,
-                                   buffer,
-                                   NR_RRC_BUF_SIZE,
-                                   xid,
-                                   NULL,
-                                   NULL,
-                                   DRB_Release_configList2,
-                                   NULL,
-                                   NULL,
-                                   dedicatedNAS_MessageList,
-                                   NULL);
-  LOG_DUMPMSG(NR_RRC,DEBUG_RRC,(char *)buffer,size, "[MSG] RRC Reconfiguration\n");
+  nr_rrc_reconfig_param_t params = {.dedicated_nas_message_list = dedicatedNAS_MessageList,
+                                    .drb_release_list = DRB_Release_configList2,
+                                    .masterKeyUpdate = false,
+                                    .nextHopChainingCount = ue_p->nh_ncc,
+                                    .transaction_id = xid};
+  byte_array_t msg = do_RRCReconfiguration(&params);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
+    return;
+  }
+  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, msg.buf, msg.len, "[MSG] RRC Reconfiguration\n");
 
   /* Free all NAS PDUs */
   if (nas_length > 0) {
@@ -872,9 +875,10 @@ void rrc_gNB_generate_dedicatedRRCReconfiguration_release(gNB_RRC_INST *rrc,
     free(nas_buffer);
   }
 
-  LOG_I(NR_RRC, "UE %d: Generate NR_RRCReconfiguration (bytes %d)\n", ue_p->rrc_ue_id, size);
+  LOG_I(NR_RRC, "UE %d: Generate NR_RRCReconfiguration (bytes %ld)\n", ue_p->rrc_ue_id, msg.len);
   const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, msg.buf, msg.len);
+  free_byte_array(msg);
 }
 
 static void fill_security_info(gNB_RRC_INST *rrc, gNB_RRC_UE_t *UE, security_information_t *secInfo)
@@ -1114,30 +1118,30 @@ static void rrc_gNB_process_RRCReestablishmentComplete(gNB_RRC_INST *rrc, gNB_RR
 
   uint8_t new_xid = rrc_gNB_get_next_transaction_identifier(rrc->module_id);
   ue_p->xids[new_xid] = RRC_REESTABLISH_COMPLETE;
-  uint8_t buffer[NR_RRC_BUF_SIZE] = {0};
-  int size = do_RRCReconfiguration(ue_p->rrc_ue_id,
-                                   buffer,
-                                   NR_RRC_BUF_SIZE,
-                                   new_xid,
-                                   SRBs,
-                                   DRBs,
-                                   NULL,
-                                   NULL,
-                                   NULL, // MeasObj_list,
-                                   NULL,
-                                   cellGroupConfig);
+  nr_rrc_reconfig_param_t params = {.cell_group_config = cellGroupConfig,
+                                    .dedicated_nas_message_list = NULL,
+                                    .drb_config_list = DRBs,
+                                    .masterKeyUpdate = false,
+                                    .nextHopChainingCount = ue_p->nh_ncc,
+                                    .srb_config_list = SRBs,
+                                    .transaction_id = new_xid};
+  byte_array_t msg = do_RRCReconfiguration(&params);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
+    return;
+  }
   freeSRBlist(SRBs);
   freeDRBlist(DRBs);
-  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, (char *)buffer, size, "[MSG] RRC Reconfiguration\n");
+  LOG_DUMPMSG(NR_RRC, DEBUG_RRC, msg.buf, msg.len, "[MSG] RRC Reconfiguration\n");
 
-  AssertFatal(size > 0, "cannot encode RRC Reconfiguration\n");
   LOG_I(NR_RRC,
-        "UE %d RNTI %04x: Generate NR_RRCReconfiguration after reestablishment complete (bytes %d)\n",
+        "UE %d RNTI %04x: Generate NR_RRCReconfiguration after reestablishment complete (bytes %ld)\n",
         ue_p->rrc_ue_id,
         ue_p->rnti,
-        size);
+        msg.len);
   const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, msg.buf, msg.len);
+  free_byte_array(msg);
 }
 //-----------------------------------------------------------------------------
 
@@ -1155,21 +1159,18 @@ int nr_rrc_reconfiguration_req(gNB_RRC_INST *rrc, gNB_RRC_UE_t *ue_p, const int 
     *masterCellGroup->spCellConfig->spCellConfigDedicated->uplinkConfig->firstActiveUplinkBWP_Id = ul_bwp_id;
   }
 
-  uint8_t buffer[NR_RRC_BUF_SIZE];
-  int size = do_RRCReconfiguration(ue_p->rrc_ue_id,
-                                   buffer,
-                                   NR_RRC_BUF_SIZE,
-                                   xid,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   masterCellGroup);
-
+  nr_rrc_reconfig_param_t params = {.cell_group_config = masterCellGroup,
+                                    .masterKeyUpdate = false,
+                                    .nextHopChainingCount = ue_p->nh_ncc,
+                                    .transaction_id = xid};
+  byte_array_t msg = do_RRCReconfiguration(&params);
+  if (msg.len == 0) {
+    LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
+    return -1;
+  }
   const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, msg.buf, msg.len);
+  free_byte_array(msg);
 
   return 0;
 }
@@ -2197,14 +2198,16 @@ static void rrc_CU_process_ue_context_setup_response(MessageDef *msg_p, instance
 
     uint8_t xid = rrc_gNB_get_next_transaction_identifier(0);
     UE->xids[xid] = RRC_DEDICATED_RECONF;
-    uint8_t buffer[NR_RRC_BUF_SIZE] = {0};
-    int size = rrc_gNB_encode_RRCReconfiguration(rrc, UE, xid, NULL, buffer, sizeof(buffer), true);
-    DevAssert(size > 0 && size <= sizeof(buffer));
+    byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, UE, xid, NULL, true);
+    if (msg.len == 0) {
+      LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", UE->rrc_ue_id);
+      return;
+    }
 
     // TODO N2 38.413 sec 9.3.1.21: admitted PDU sessions (in UE), Target to
     // Source Transparent Container (9.3.1.21) which encodes the RRC
     // reconfiguration above
-    UE->ho_context->target->ho_req_ack(rrc, UE, buffer, size);
+    UE->ho_context->target->ho_req_ack(rrc, UE, msg.buf, msg.len);
   }
 }
 
