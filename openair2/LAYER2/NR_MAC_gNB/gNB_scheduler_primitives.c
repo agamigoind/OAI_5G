@@ -3293,14 +3293,14 @@ void beam_selection_procedures(gNB_MAC_INST *mac, NR_UE_info_t *UE)
 void send_initial_ul_rrc_message(int rnti, const uint8_t *sdu, sdu_size_t sdu_len, void *data)
 {
   gNB_MAC_INST *mac = RC.nrmac[0];
-  NR_UE_info_t *UE = (NR_UE_info_t *)data;
+  NR_CellGroupConfig_t *CellGroup = (NR_CellGroupConfig_t *)data;
   NR_SCHED_ENSURE_LOCKED(&mac->sched_lock);
 
   int encoded_len = 0;
   uint8_t *buf = NULL;
-  if (UE->CellGroup) {
+  if (CellGroup) {
     uint8_t du2cu[1024];
-    encoded_len = encode_cellGroupConfig(UE->CellGroup, du2cu, sizeof(du2cu));
+    encoded_len = encode_cellGroupConfig(CellGroup, du2cu, sizeof(du2cu));
     buf = (uint8_t *) du2cu;
   } else {
     // if CellGroup is NULL the DU is not able to serve such UE
@@ -3322,32 +3322,36 @@ void send_initial_ul_rrc_message(int rnti, const uint8_t *sdu, sdu_size_t sdu_le
   mac->mac_rrc.initial_ul_rrc_message_transfer(0, &ul_rrc_msg);
 }
 
-bool prepare_initial_ul_rrc_message(gNB_MAC_INST *mac, NR_UE_info_t *UE)
+bool prepare_initial_ul_rrc_message(gNB_MAC_INST *mac, NR_UE_info_t *UE, rnti_t rnti)
 {
   NR_SCHED_ENSURE_LOCKED(&mac->sched_lock);
-
-  /* activate SRB0 */
-  if (!nr_rlc_activate_srb0(UE->rnti, UE, send_initial_ul_rrc_message))
-    return false;
 
   /* create this UE's initial CellGroup */
   int CC_id = 0;
   int srb_id = 1;
   const NR_ServingCellConfigCommon_t *scc = mac->common_channels[CC_id].ServingCellConfigCommon;
   const NR_ServingCellConfig_t *sccd = mac->common_channels[CC_id].pre_ServingCellConfig;
-  NR_CellGroupConfig_t *cellGroupConfig = get_initial_cellGroupConfig(UE->uid, scc, sccd, &mac->radio_config);
-  ASN_STRUCT_FREE(asn_DEF_NR_CellGroupConfig, UE->CellGroup);
-  UE->CellGroup = cellGroupConfig;
+  NR_CellGroupConfig_t *cellGroupConfig = NULL;
+  if (UE) {
+    cellGroupConfig = get_initial_cellGroupConfig(UE->uid, scc, sccd, &mac->radio_config);
+    ASN_STRUCT_FREE(asn_DEF_NR_CellGroupConfig, UE->CellGroup);
+    UE->CellGroup = cellGroupConfig;
+  }
+  /* activate SRB0 */
+  if (!nr_rlc_activate_srb0(rnti, cellGroupConfig, send_initial_ul_rrc_message))
+    return false;
 
   /* the cellGroup sent to CU specifies there is SRB1, so create it */
-  DevAssert(cellGroupConfig->rlc_BearerToAddModList->list.count == 1);
-  const NR_RLC_BearerConfig_t *bearer = cellGroupConfig->rlc_BearerToAddModList->list.array[0];
-  DevAssert(bearer->servedRadioBearer->choice.srb_Identity == srb_id);
-  nr_rlc_add_srb(UE->rnti, bearer->servedRadioBearer->choice.srb_Identity, bearer);
+  if (cellGroupConfig) {
+    DevAssert(cellGroupConfig->rlc_BearerToAddModList->list.count == 1);
+    const NR_RLC_BearerConfig_t *bearer = cellGroupConfig->rlc_BearerToAddModList->list.array[0];
+    DevAssert(bearer->servedRadioBearer->choice.srb_Identity == srb_id);
+    nr_rlc_add_srb(rnti, bearer->servedRadioBearer->choice.srb_Identity, bearer);
 
-  int priority = bearer->mac_LogicalChannelConfig->ul_SpecificParameters->priority;
-  nr_lc_config_t c = {.lcid = bearer->logicalChannelIdentity, .priority = priority};
-  nr_mac_add_lcid(&UE->UE_sched_ctrl, &c);
+    int priority = bearer->mac_LogicalChannelConfig->ul_SpecificParameters->priority;
+    nr_lc_config_t c = {.lcid = bearer->logicalChannelIdentity, .priority = priority};
+    nr_mac_add_lcid(&UE->UE_sched_ctrl, &c);
+  }
   return true;
 }
 

@@ -264,6 +264,7 @@ static rnti_t lcid_crnti_lookahead(uint8_t *pdu, uint32_t pdu_len)
 
 static int nr_process_mac_pdu(instance_t module_idP,
                               NR_UE_info_t *UE,
+                              rnti_t rnti,
                               uint8_t CC_id,
                               frame_t frameP,
                               sub_frame_t slot,
@@ -282,7 +283,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
                       .pdu_buffer_size = pdu_len,
                       .ueid = 0,
                       .rntiType = WS_C_RNTI,
-                      .rnti = UE->rnti,
+                      .rnti = rnti,
                       .sysFrame = frameP,
                       .subframe = slot,
                       .harq_pid = harq_pid};
@@ -305,7 +306,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
             "Invalid PDU in %d.%d for RNTI %04X! mac_subheader_len: %d, mac_len: %d, remaining pdu_len: %d\n",
             frameP,
             slot,
-            UE->rnti,
+            rnti,
             mac_subheader_len,
             mac_len,
             pdu_len);
@@ -323,7 +324,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
           lcid,
           frameP,
           slot,
-          UE->rnti,
+          rnti,
           pdu_len);
 
     unsigned char *ce_ptr;
@@ -346,11 +347,11 @@ static int nr_process_mac_pdu(instance_t module_idP,
           }
         }
 
-        LOG_I(MAC, "[RAPROC] Received SDU for CCCH length %d for UE %04x\n", mac_len, UE->rnti);
+        LOG_I(MAC, "[RAPROC] Received SDU for CCCH length %d for UE %04x\n", mac_len, rnti);
 
-        if (prepare_initial_ul_rrc_message(RC.nrmac[module_idP], UE)) {
+        if (prepare_initial_ul_rrc_message(RC.nrmac[module_idP], UE, rnti)) {
           mac_rlc_data_ind(module_idP,
-                           UE->rnti,
+                           rnti,
                            module_idP,
                            frameP,
                            ENB_FLAG_YES,
@@ -369,13 +370,13 @@ static int nr_process_mac_pdu(instance_t module_idP,
       case UL_SCH_LCID_SRB2:
         AssertFatal(UE->CellGroup,
                     "UE %04x %d.%d: Received LCID %d which is not configured (UE has no CellGroup)\n",
-                    UE->rnti,
+                    rnti,
                     frameP,
                     slot,
                     lcid);
 
         mac_rlc_data_ind(module_idP,
-                         UE->rnti,
+                         rnti,
                          module_idP,
                          frameP,
                          ENB_FLAG_YES,
@@ -393,7 +394,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
       case UL_SCH_LCID_DTCH ...(UL_SCH_LCID_DTCH + 28):
         LOG_D(NR_MAC,
               "[UE %04x] %d.%d : ULSCH -> UL-%s %d (gNB %ld, %d bytes)\n",
-              UE->rnti,
+              rnti,
               frameP,
               slot,
               lcid < 4 ? "DCCH" : "DTCH",
@@ -403,7 +404,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
         UE->mac_stats.ul.lc_bytes[lcid] += mac_len;
 
         mac_rlc_data_ind(module_idP,
-                         UE->rnti,
+                         rnti,
                          module_idP,
                          frameP,
                          ENB_FLAG_YES,
@@ -488,7 +489,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
       case UL_SCH_LCID_C_RNTI:
         for (int i = 0; i < NR_NB_RA_PROC_MAX; i++) {
           NR_RA_t *ra = &RC.nrmac[module_idP]->common_channels[CC_id].ra[i];
-          if (ra->ra_state == nrRA_gNB_IDLE && ra->rnti == UE->rnti) {
+          if (ra->ra_state == nrRA_gNB_IDLE && ra->rnti == rnti) {
             // Extract C-RNTI value
             rnti_t crnti = ((pduP[1] & 0xFF) << 8) | (pduP[2] & 0xFF);
             AssertFatal(false,
@@ -521,7 +522,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
         return 0;
 
       default:
-        LOG_E(NR_MAC, "RNTI %0x [%d.%d], received unknown MAC header (LCID = 0x%02x)\n", UE->rnti, frameP, slot, lcid);
+        LOG_E(NR_MAC, "RNTI %0x [%d.%d], received unknown MAC header (LCID = 0x%02x)\n", rnti, frameP, slot, lcid);
         return -1;
         break;
     }
@@ -804,7 +805,7 @@ static void _nr_rx_sdu(const module_id_t gnb_mod_idP,
       if (UE_scheduling_control->sched_ul_bytes < 0)
         UE_scheduling_control->sched_ul_bytes = 0;
 
-      nr_process_mac_pdu(gnb_mod_idP, UE, CC_idP, frameP, slotP, sduP, sdu_lenP, harq_pid);
+      nr_process_mac_pdu(gnb_mod_idP, UE, current_rnti, CC_idP, frameP, slotP, sduP, sdu_lenP, harq_pid);
     }
     else {
       if (ul_cqi == 0xff || ul_cqi <= 128) {
@@ -974,7 +975,7 @@ static void _nr_rx_sdu(const module_id_t gnb_mod_idP,
         // Decode MAC PDU for the correct UE, after checking for MAC CE for C-RNTI
         // harq_pid set a non valid value because it is not used in this call
         // the function is only called to decode the contention resolution sub-header
-        nr_process_mac_pdu(gnb_mod_idP, UE, CC_idP, frameP, slotP, sduP, sdu_lenP, -1);
+        nr_process_mac_pdu(gnb_mod_idP, UE, current_rnti, CC_idP, frameP, slotP, sduP, sdu_lenP, -1);
 
         LOG_I(NR_MAC,
               "Activating scheduling %s for TC_RNTI 0x%04x (state %s)\n",
