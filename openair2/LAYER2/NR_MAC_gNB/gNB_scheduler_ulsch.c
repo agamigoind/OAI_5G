@@ -1357,7 +1357,7 @@ void handle_nr_srs_measurements(const module_id_t module_id,
 {
   gNB_MAC_INST *nrmac = RC.nrmac[module_id];
   NR_SCHED_LOCK(&nrmac->sched_lock);
-  LOG_D(NR_MAC, "(%d.%d) Received SRS indication for UE %04x\n", frame, slot, srs_ind->rnti);
+  LOG_I(NR_MAC, "(%d.%d) Received SRS indication for UE %04x\n", frame, slot, srs_ind->rnti);
 
 #ifdef SRS_IND_DEBUG
   LOG_I(NR_MAC, "frame = %i\n", frame);

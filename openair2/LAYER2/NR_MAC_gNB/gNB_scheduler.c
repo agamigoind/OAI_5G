@@ -219,8 +219,28 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP, frame_t frame, sub_frame_
       schedule_nr_sib19(module_idP, frame, slot, &sched_info->DL_req, &sched_info->TX_req, cc->sib19_bcch_length, cc->sib19_bcch_pdu);
   }
 
+  bool sched_others = true;
+  {
+    UE_iterator(gNB->UE_info.list, UE) {
+      NR_sched_srs_t sched_srs = UE->UE_sched_ctrl.sched_srs;
+      if(sched_srs.srs_scheduled) {
+        sched_others = false;
+        break;
+      }
+    }
+  }
+
+  // Schedule CSI-RS transmission
+  nr_csirs_scheduling(module_idP, frame, slot, &sched_info->DL_req);
+
+  // Schedule CSI measurement reporting
+  nr_csi_meas_reporting(module_idP, frame, slot);
+
+  nr_schedule_srs(module_idP, frame, slot);
+
+
   // This schedule PRACH if we are not in phy_test mode
-  if (get_softmodem_params()->phy_test == 0) {
+  if (get_softmodem_params()->phy_test == 0 && sched_others) {
     /* we need to make sure that resources for PRACH are free. To avoid that
        e.g. PUSCH has already been scheduled, make sure we schedule before
        anything else: below, we simply assume an advance one frame (minus
@@ -232,14 +252,6 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP, frame_t frame, sub_frame_
     const sub_frame_t s = (slot + n_slots_ahead) % slots_frame;
     schedule_nr_prach(module_idP, f, s);
   }
-
-  // Schedule CSI-RS transmission
-  nr_csirs_scheduling(module_idP, frame, slot, &sched_info->DL_req);
-
-  // Schedule CSI measurement reporting
-  nr_csi_meas_reporting(module_idP, frame, slot);
-
-  nr_schedule_srs(module_idP, frame, slot);
 
   // This schedule RA procedure if not in phy_test mode
   // Otherwise consider 5G already connected
@@ -256,7 +268,6 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP, frame_t frame, sub_frame_
   stop_meas(&gNB->schedule_dlsch);
 
   nr_sr_reporting(gNB, frame, slot);
-
   nr_schedule_pucch(gNB, frame, slot);
 
   /* TODO: we copy from gNB->UL_tti_req_ahead[0][current_index], ie. CC_id == 0,
