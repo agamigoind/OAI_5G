@@ -36,6 +36,7 @@ uint8_t pull8(uint8_t **in, uint8_t *out, uint8_t *end);
 uint8_t pulls8(uint8_t **in, int8_t *out, uint8_t *end);
 uint8_t pull16(uint8_t **in, uint16_t *out, uint8_t *end);
 uint8_t pulls16(uint8_t **in, int16_t *out, uint8_t *end);
+uint8_t pullx32(uint8_t length, uint8_t **in, uint32_t *out, uint8_t *end);
 uint8_t pull32(uint8_t **in, uint32_t *out, uint8_t *end);
 uint8_t pulls32(uint8_t **in, int32_t *out, uint8_t *end);
 
