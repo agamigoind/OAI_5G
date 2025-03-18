@@ -973,8 +973,9 @@ int pbch_pdcch_processing(PHY_VARS_NR_UE *ue, const UE_nr_rxtx_proc_t *proc, nr_
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_UE_SLOT_FEP_PDCCH, VCD_FUNCTION_IN);
 
   uint8_t nb_symb_pdcch = phy_pdcch_config->nb_search_space > 0 ? phy_pdcch_config->pdcch_config[0].coreset.duration : 0;
-  for (uint16_t l=0; l<nb_symb_pdcch; l++) {
-    nr_slot_fep(ue, fp, proc->nr_slot_rx, l, rxdataF, link_type_dl, 0, ue->common_vars.rxdata);
+  uint8_t start_symb_pdcch = phy_pdcch_config->pdcch_config[0].coreset.StartSymbolIndex;
+  for (uint16_t l = 0; l < nb_symb_pdcch; l++) {
+    nr_slot_fep(ue, fp, proc->nr_slot_rx, start_symb_pdcch + l, rxdataF, link_type_dl, 0, ue->common_vars.rxdata);
   }
 
     // Hold the channel estimates in frequency domain.
@@ -989,7 +990,7 @@ int pbch_pdcch_processing(PHY_VARS_NR_UE *ue, const UE_nr_rxtx_proc_t *proc, nr_
 
       nr_pdcch_channel_estimation(ue,
                                   proc,
-                                  l,
+                                  start_symb_pdcch + l,
                                   &phy_pdcch_config->pdcch_config[n_ss].coreset,
                                   fp->first_carrier_offset,
                                   phy_pdcch_config->pdcch_config[n_ss].BWPStart,

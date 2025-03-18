@@ -268,7 +268,7 @@ void nr_scan_ssb(void *arg)
           phase_tdd_ncp,
           ssbInfo->syncRes.rx_offset);
 #endif
-    ssbInfo->freqOffset = freq_offset_pss + freq_offset_sss;
+    ssbInfo->freqOffset = freq_offset_pss; /* + freq_offset_sss;*/
 
     if (ssbInfo->syncRes.cell_detected) { // we got sss channel
       ssbInfo->syncRes.cell_detected = nr_pbch_detection(ssbInfo->proc,
