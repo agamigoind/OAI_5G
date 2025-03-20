@@ -532,6 +532,54 @@ static inline void multadd_cpx_vector(const c16_t *x1, const c16_t *x2, c16_t *y
   }
 }
 
+static inline simde__m256i protected_abs256(const simde__m256i in)
+{
+  const int16_t all32768[16] __attribute__((aligned(32))) = {-32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768,
+                                                             -32768};
+  const int16_t all32767[16] __attribute__((aligned(32))) = {-32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767,
+                                                             -32767};
+  const simde__m256i no32768 =
+      simde_mm256_blendv_epi8(in, *(simde__m256i *)all32767, simde_mm256_cmpeq_epi16(in, *(simde__m256i *)all32768));
+  return simde_mm256_abs_epi16(no32768);
+}
+
+static inline simde__m128i protected_abs128(const simde__m128i in)
+{
+  const int16_t all32768[8] __attribute__((aligned(16))) = {-32768, -32768, -32768, -32768, -32768, -32768, -32768, -32768};
+  const int16_t all32767[8] __attribute__((aligned(16))) = {-32767, -32767, -32767, -32767, -32767, -32767, -32767, -32767};
+  const simde__m128i no32768 =
+      simde_mm_blendv_epi8(in, *(simde__m128i *)all32767, simde_mm_cmpeq_epi16(in, *(simde__m128i *)all32768));
+  return simde_mm_abs_epi16(no32768);
+}
+
 // lte_dfts.c
 void init_fft(uint16_t size,
               uint8_t logsize,
