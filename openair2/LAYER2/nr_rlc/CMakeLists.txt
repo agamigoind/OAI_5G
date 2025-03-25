@@ -9,6 +9,7 @@ target_include_directories(nr_rlc_core PRIVATE ../../..)
 target_link_libraries(nr_rlc_core PRIVATE ${T_LIB})
 add_library(nr_rlc STATIC
             asn1_utils.c
+            f1_rlc_helper.c
             nr_rlc_oai_api.c
             nr_rlc_ue_manager.c
 )

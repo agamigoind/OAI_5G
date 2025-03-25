@@ -3291,37 +3291,10 @@ void beam_selection_procedures(gNB_MAC_INST *mac, NR_UE_info_t *UE)
   UE->UE_beam_index = new_bf_index;
 }
 
-void send_initial_ul_rrc_message(int rnti, const uint8_t *sdu, sdu_size_t sdu_len, void *data)
-{
-  gNB_MAC_INST *mac = RC.nrmac[0];
-  NR_UE_info_t *UE = (NR_UE_info_t *)data;
-  NR_SCHED_ENSURE_LOCKED(&mac->sched_lock);
-
-  uint8_t du2cu[1024];
-  int encoded = encode_cellGroupConfig(UE->CellGroup, du2cu, sizeof(du2cu));
-
-  DevAssert(mac->f1_config.setup_req != NULL);
-  AssertFatal(mac->f1_config.setup_req->num_cells_available == 1, "can handle only one cell\n");
-  const f1ap_initial_ul_rrc_message_t ul_rrc_msg = {
-    .plmn = mac->f1_config.setup_req->cell[0].info.plmn,
-    .nr_cellid = mac->f1_config.setup_req->cell[0].info.nr_cellid,
-    .gNB_DU_ue_id = rnti,
-    .crnti = rnti,
-    .rrc_container = (uint8_t *) sdu,
-    .rrc_container_length = sdu_len,
-    .du2cu_rrc_container = (uint8_t *) du2cu,
-    .du2cu_rrc_container_length = encoded
-  };
-  mac->mac_rrc.initial_ul_rrc_message_transfer(0, &ul_rrc_msg);
-}
-
 bool prepare_initial_ul_rrc_message(gNB_MAC_INST *mac, NR_UE_info_t *UE)
 {
   NR_SCHED_ENSURE_LOCKED(&mac->sched_lock);
-
-  /* activate SRB0 */
-  if (!nr_rlc_activate_srb0(UE->rnti, UE, send_initial_ul_rrc_message))
-    return false;
+  nr_rlc_init_ue(UE->rnti);
 
   /* create this UE's initial CellGroup */
   int CC_id = 0;

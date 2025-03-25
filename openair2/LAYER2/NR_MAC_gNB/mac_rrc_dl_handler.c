@@ -502,7 +502,7 @@ static NR_UE_info_t *create_new_UE(gNB_MAC_INST *mac, uint32_t cu_id)
   UE->Msg4_MsgB_ACKed = true;
   UE->CellGroup = cellGroupConfig;
 
-  nr_rlc_activate_srb0(UE->rnti, UE, NULL);
+  nr_rlc_init_ue(UE->rnti);
   nr_mac_prepare_ra_ue(mac, rnti, UE->CellGroup);
   /* SRB1 is added to RLC and MAC in the handler later */
   return UE;

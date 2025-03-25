@@ -28,7 +28,6 @@
 #include "openair3/ocp-gtpu/gtp_itf.h"
 
 #include "mac_rrc_ul.h"
-
 #include "f1ap_lib_extern.h"
 #include "lib/f1ap_interface_management.h"
 
