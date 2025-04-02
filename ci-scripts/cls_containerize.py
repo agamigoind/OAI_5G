@@ -152,19 +152,6 @@ def GetImageName(ssh, svcName, file):
 	else:
 		return ret.stdout.strip()
 
-def GetServiceHealth(ssh, svcName, file):
-	if svcName is None:
-		return False, f"Service {svcName} not found in {file}"
-	image = GetImageName(ssh, svcName, file)
-	if 'db_init' in svcName or 'db-init' in svcName: # exits with 0, there cannot be healthy
-		return True, f"Service {svcName} healthy, image {image}"
-	for _ in range(8):
-		result = ssh.run(f"docker compose -f {file} ps --format json {svcName}  | jq -r 'if type==\"array\" then .[0].Health else .Health end'", silent=True)
-		if result.stdout == 'healthy':
-			return True, f"Service {svcName} healthy, image {image}"
-		time.sleep(5)
-	return False, f"Failed to deploy: service {svcName}"
-
 def ExistEnvFilePrint(ssh, wd, prompt='env vars in existing'):
 	ret = ssh.run(f'cat {wd}/.env', silent=True, reportNonZero=False)
 	if ret.returncode != 0:
