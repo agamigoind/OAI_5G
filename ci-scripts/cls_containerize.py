@@ -861,12 +861,11 @@ class Containerize():
 				imagesInfo = []
 				logging.info(f'will start services {services}')
 				status = ssh.run(f'docker compose -f {wd_yaml} up --wait -- {services}')
-				if status.returncode != 0:
+				deployed = status.returncode == 0
+				if not deployed:
 					msg = f'cannot deploy services {services}: {status.stdout}'
 					logging.error(msg)
-					deployed = False
 				else:
-					deployed = True
 					break
 				if (attempt < num_attempts - 1):
 					logging.warning(f'Failed to deploy on attempt {attempt}, restart services {services}')
