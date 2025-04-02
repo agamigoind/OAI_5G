@@ -858,9 +858,9 @@ class Containerize():
 			if num_attempts <= 0:
 				raise ValueError(f'Invalid value for num_attempts: {num_attempts}, must be greater than 0')
 			for attempt in range(num_attempts):
-				imagesInfo = []
 				logging.info(f'will start services {services}')
 				status = ssh.run(f'docker compose -f {wd_yaml} up --wait -- {services}')
+				info = ssh.run(f"docker compose -f {wd_yaml} ps --all --format=\'table {{{{.Service}}}}   image: {{{{.Image}}}}   status: {{{{.Status}}}}\'")
 				deployed = status.returncode == 0
 				if not deployed:
 					msg = f'cannot deploy services {services}: {status.stdout}'
@@ -872,6 +872,7 @@ class Containerize():
 					for svc in services.split():
 						CopyinServiceLog(ssh, lSourcePath, yaml_dir, svc, wd_yaml, f'{svc}-{HTML.testCase_id}-attempt{attempt}.log')
 					ssh.run(f'docker compose -f {wd_yaml} down -- {services}')
+		imagesInfo = info.stdout.splitlines()[1:]
 		if deployed:
 			HTML.CreateHtmlTestRowQueue('N/A', 'OK', ['\n'.join(imagesInfo)])
 		else:
