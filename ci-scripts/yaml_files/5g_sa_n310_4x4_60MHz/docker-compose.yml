@@ -35,7 +35,9 @@ services:
         volumes:
             - ../../conf_files/gnb-pnf.band77.usrpn310.4x4.conf:/opt/oai-gnb/etc/gnb.conf
         healthcheck:
-            test: /bin/bash -c "pgrep nr-softmodem"
-            interval: 10s
+            test: /bin/bash -c "test -f /opt/oai-gnb/nrL1_stats.log && grep -oP 'PRACH I0 = \K[0-9.]*' /opt/oai-gnb/nrL1_stats.log | awk '{if (\$1 > 0.0) exit 0; else exit 1}'"
+            interval: 15s
+            start_period: 15s
+            start_interval: 500ms
             timeout: 5s
             retries: 5
