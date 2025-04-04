@@ -184,29 +184,40 @@ static void nr_process_decode_segment(void *arg)
   stop_meas(rdata->p_ts_rate_unmatch);
   start_meas(rdata->p_ts_ldpc_decode);
 
+  const uint32_t N = rdata->BG == 2 ? 50 * Z : 66 * Z;
+
   int crc_type = crcType(C, A);
-  uint32_t crc_len = 0;
+  armral_ldpc_decode_options_t armral_ldpc_decode_options = ARMRAL_LDPC_CRC_NO;
+  armral_ldpc_decode_options |= ARMRAL_LDPC_CRC_EVERY_ITER;
   switch (crc_type) {
     case CRC24_A:
+      armral_ldpc_decode_options |= ARMRAL_LDPC_CRC_24A;
+      break;
+
     case CRC24_B:
-      crc_len = 24;
+      armral_ldpc_decode_options |= ARMRAL_LDPC_CRC_24B;
       break;
 
     case CRC16:
-      crc_len = 16;
+      armral_ldpc_decode_options |= ARMRAL_LDPC_CRC_16;
       break;
 
     case CRC8:
-      crc_len = 8;
+      armral_ldpc_decode_options |= ARMRAL_LDPC_CRC_NO;
       break;
 
     default:
       AssertFatal(1, "Invalid crc_type \n");
   }
-  uint32_t crc_idx = Kprime - crc_len;
 
-  armral_status status_decoding =
-      armral_ldpc_decode_block((int8_t *)rdata->d, armral_bg, Z, crc_idx, max_number_iterations, llrProcBuf);
+  armral_status status_decoding = armral_ldpc_decode_block(N,
+                                                           (int8_t *)rdata->d,
+                                                           armral_bg,
+                                                           Z,
+                                                           F,
+                                                           llrProcBuf,
+                                                           max_number_iterations,
+                                                           armral_ldpc_decode_options);
   if (status_decoding == ARMRAL_ARGUMENT_ERROR) {
     LOG_E(PHY, "argument error in armral decoding\n");
   }
