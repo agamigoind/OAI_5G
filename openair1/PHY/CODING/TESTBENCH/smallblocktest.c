@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
   reset_meas(&timeDecoder);
   randominit(0);
 
+  int ret = 1;
   int arguments, iterations = 1000, messageLength = 11;
   // int matlabDebug = 0;
   uint32_t testInput, encoderOutput, codingDifference, nBitError = 0, blockErrorState = 0, blockErrorCumulative = 0,
@@ -169,5 +170,9 @@ int main(int argc, char *argv[])
   print_meas(&timeEncoder, "smallblock_encoder", NULL, NULL);
   print_meas(&timeDecoder, "smallblock_decoder", NULL, NULL);
 
-  return (0);
+  if (((double)blockErrorCumulative / iterations) == 0) {
+    ret = 0;
+  }
+
+  return ret;
 }
