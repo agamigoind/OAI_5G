@@ -907,8 +907,7 @@ printf("%d\n", slot);
 
   nr_ue_phy_config_request(&UE_mac->phy_config);
   //NR_COMMON_channels_t *cc = RC.nrmac[0]->common_channels;
-  int n_errs = 0;
-
+  int ret = 1;
   initNamedTpool(gNBthreads, &gNB->threadPool, true, "gNB-tpool");
   initNotifiedFIFO(&gNB->L1_tx_free);
   initNotifiedFIFO(&gNB->L1_tx_filled);
@@ -1310,10 +1309,10 @@ printf("%d\n", slot);
 
     if (effRate > (eff_tp_check*TBS)) {
       printf("PDSCH test OK\n");
+      ret = 0;
       break;
     }
 
-    n_errs = n_errors[0];
   } // NSR
 
   free_channel_desc_scm(gNB2UE);
@@ -1360,7 +1359,7 @@ printf("%d\n", slot);
     free(filename_csv);
   }
 
-  return n_errs;
+  return ret;
 }
 
 
