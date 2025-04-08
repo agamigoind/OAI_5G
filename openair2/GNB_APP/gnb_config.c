@@ -217,6 +217,7 @@ void prepare_scc(NR_ServingCellConfigCommon_t *scc)
 
   scc->ext2 = calloc_or_fail(1, sizeof(*scc->ext2));
   scc->ext2->ntn_Config_r17 = calloc_or_fail(1, sizeof(*scc->ext2->ntn_Config_r17));
+  scc->ext2->ntn_Config_r17->ntn_UlSyncValidityDuration_r17 = calloc_or_fail(1, sizeof(long));
   scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17 = calloc_or_fail(1, sizeof(*scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17));
 
   scc->ext2->ntn_Config_r17->ephemerisInfo_r17 = calloc_or_fail(1, sizeof(*scc->ext2->ntn_Config_r17->ephemerisInfo_r17));
@@ -564,6 +565,10 @@ void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap)
   AssertFatal(*scc->uplinkConfigCommon->initialUplinkBWP->pucch_ConfigCommon->choice.setup->pucch_ResourceCommon < 2,
 	      "pucch_ResourceConfig should be 0 or 1 for now\n");
 
+  if (*scc->ext2->ntn_Config_r17->ntn_UlSyncValidityDuration_r17 == 0) {
+    free(scc->ext2->ntn_Config_r17->ntn_UlSyncValidityDuration_r17);
+    scc->ext2->ntn_Config_r17->ntn_UlSyncValidityDuration_r17 = NULL;
+  }
   if (*scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17 == 0) {
     free(scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17);
     scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17 = NULL;
@@ -588,8 +593,10 @@ void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap)
     scc->ext2->ntn_Config_r17->ephemerisInfo_r17 = NULL;
   }
 
-  if (!scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17 && !scc->ext2->ntn_Config_r17->ta_Info_r17
-      && !scc->ext2->ntn_Config_r17->ephemerisInfo_r17) {
+  if (!scc->ext2->ntn_Config_r17->ntn_UlSyncValidityDuration_r17 &&
+      !scc->ext2->ntn_Config_r17->cellSpecificKoffset_r17 &&
+      !scc->ext2->ntn_Config_r17->ta_Info_r17 &&
+      !scc->ext2->ntn_Config_r17->ephemerisInfo_r17) {
     free(scc->ext2->ntn_Config_r17);
     free(scc->ext2);
     scc->ext2 = NULL;
