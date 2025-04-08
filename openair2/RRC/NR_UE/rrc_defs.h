@@ -167,6 +167,8 @@ typedef struct NR_UE_Timers_Constants_s {
   NR_timer_t T325;
   NR_timer_t T380;
   NR_timer_t T390;
+  // NTN timer T430 which guards UL SYNC
+  NR_timer_t T430;
   // counters
   uint32_t N310_cnt;
   uint32_t N311_cnt;
@@ -238,6 +240,10 @@ typedef struct NR_UE_RRC_INST_s {
   NR_SL_PreconfigurationNR_r16_t *sl_preconfig;
   // NTN params
   bool is_NTN_UE;
+  int sib19_periodicity;
+  int sib19_windowposition;
+  int si_windowlength;
+  int slots_per_subframe;
 } NR_UE_RRC_INST_t;
 
 #endif

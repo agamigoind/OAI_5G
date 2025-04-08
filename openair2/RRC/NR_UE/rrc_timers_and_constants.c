@@ -169,6 +169,14 @@ void nr_rrc_handle_timers(NR_UE_RRC_INST_t *rrc)
     // with release cause 'RRC connection failure'
     nr_rrc_going_to_IDLE(rrc, RRC_CONNECTION_FAILURE, NULL);
   }
+
+  bool t430_expired = nr_timer_tick(&rrc->timers_and_constants.T430);
+  if (t430_expired && rrc->nrRrcState == RRC_STATE_CONNECTED_NR) {
+    LOG_W(NR_RRC, "Timer T430 expired! UL SYNC FAILURE\n");
+    // Upon T430 expiry, the UE shall reacquire SIB19 and re-obtain UL-SYNC
+    // Spec 38.331 Section 5.2.2.6
+    AssertFatal(1 == 0, "NOT YET Implemented. UL-Sync Lost. Re-obtain UL SYNC by performing RACH\n");
+  }
 }
 
 int nr_rrc_get_T304(long t304)
