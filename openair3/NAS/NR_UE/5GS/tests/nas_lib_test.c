@@ -6,6 +6,7 @@
 #include "fgs_service_request.h"
 #include "fgmm_service_accept.h"
 #include "fgmm_service_reject.h"
+#include "FGSNASSecurityModeReject.h"
 #include "nr_nas_msg.h"
 
 void exit_function(const char *file, const char *function, const int line, const char *s, const int assert)
@@ -170,10 +171,42 @@ static void test_service_reject(void)
   free_fgs_service_reject(&orig);
 }
 
+/** @brief Test NAS Security Mode Reject enc/dec */
+static void test_security_mode_reject(void)
+{
+  // Dummy NAS Security Mode Reject message
+  const fgs_security_mode_reject_msg orig = {
+      .cause = Illegal_UE,
+  };
+
+  // Expected encoded data
+  uint8_t expected_enc[] = {0x03};
+
+  // Buffer
+  uint8_t buf[8] = {0};
+  byte_array_t buffer = {.buf = buf, .len = sizeof(buf)};
+
+  // Encode
+  int encoded_length = encode_fgs_security_mode_reject(&buffer, &orig);
+  AssertFatal(encoded_length == sizeofArray(expected_enc), "encode_fgs_security_mode_reject() failed\n");
+
+  // Compare the raw encoded buffer with expected encoded data
+  AssertFatal(memcmp(buffer.buf, expected_enc, encoded_length) == 0, "Encoding mismatch!\n");
+
+  // Decode
+  fgs_security_mode_reject_msg dec = {0};
+  int decoded_length = decode_fgs_security_mode_reject(&dec, &buffer);
+  AssertFatal(decoded_length >= 0, "decode_fgs_security_mode_reject() failed\n");
+
+  // Compare original and decoded messages
+  AssertFatal(eq_sec_mode_reject(&orig, &dec), "test_sec_mode_reject() failed: original and decoded messages do not match\n");
+}
+
 int main()
 {
   test_service_request();
   test_service_accept();
   test_service_reject();
+  test_security_mode_reject();
   return 0;
 }
