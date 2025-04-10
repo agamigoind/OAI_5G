@@ -34,7 +34,7 @@
 #include <stdint.h>
 
 #include "MessageType.h"
-#include "FGSNasCause.h"
+#include "fgmm_lib.h"
 
 /*
  * Message name: security mode reject
@@ -47,11 +47,12 @@
  */
 
 typedef struct {
-    /* Mandatory fields */
-    FGSNasCause                                cause;
+  // 5GMM cause (Mandatory)
+  cause_id_t cause;
 } fgs_security_mode_reject_msg;
 
-int encode_fgs_security_mode_reject(const fgs_security_mode_reject_msg *fgs_security_mode_comp, uint8_t *buffer, uint32_t len);
-int decode_fgs_security_mode_reject(fgs_security_mode_reject_msg *securitymodereject, uint8_t *buffer, uint32_t len);
+int encode_fgs_security_mode_reject(byte_array_t *buffer, const fgs_security_mode_reject_msg *msg);
+int decode_fgs_security_mode_reject(fgs_security_mode_reject_msg *msg, const byte_array_t *buffer);
+bool eq_sec_mode_reject(const fgs_security_mode_reject_msg *a, const fgs_security_mode_reject_msg *b);
 
 #endif /* ! defined(FGS_NAS_security_mode_reject_H_) */
