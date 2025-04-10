@@ -99,7 +99,7 @@ int decode_fgs_service_reject(fgs_service_reject_msg_t *msg, const byte_array_t 
         break;
 
       case IEI_EAPMSG:
-        DECODE_NAS_IE(ba, decode_eap_msg_ie((const byte_array_t *)&ba), decoded);
+        //DECODE_NAS_IE(ba, decode_eap_msg_ie((const byte_array_t *)&ba), decoded);
         break;
 
       case IEI_CAG_INFO_LIST: {
