@@ -612,7 +612,8 @@ NR_MeasConfig_t *nr_rrc_get_measconfig(const gNB_RRC_INST *rrc, uint64_t nr_cell
       for (int i = 0; i < neighbour_cells->size; i++) {
         nr_neighbour_gnb_configuration_t *neighbourCell = (nr_neighbour_gnb_configuration_t *)seq_arr_at(neighbour_cells, i);
         nr_neighbour_cell_t neigh_cell = {.physicalCellId = neighbourCell->physicalCellId,
-                                          .absoluteFrequencySSB = neighbourCell->absoluteFrequencySSB};
+                                          .absoluteFrequencySSB = neighbourCell->absoluteFrequencySSB,
+                                          .band = neighbourCell->band};
         seq_arr_push_back(neigh_seq, &neigh_cell, sizeof(nr_neighbour_cell_t));
         const nr_a3_event_t *a3Event = get_a3_configuration((gNB_RRC_INST *)rrc, neighbourCell->physicalCellId);
         if (!a3Event || is_default_a3_added)
