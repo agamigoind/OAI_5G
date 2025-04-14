@@ -1051,6 +1051,15 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
 #endif
 
 #ifdef ENABLE_10_04
+#ifdef ENABLE_AERIAL
+    nfapi_nr_tdd_table_tlv_t tdd_table_tlv = {.tl.tag = NFAPI_NR_CONFIG_SLOT_CONFIG_TAG, .value = &pNfapiMsg->tdd_table, .slots_per_frame = slotsperframe[pNfapiMsg->ssb_config.scs_common.value], .symbols_per_slot = number_of_symbols_per_slot  };
+    retval &= pack_nr_tlv(NFAPI_NR_CONFIG_SLOT_CONFIG_TAG,
+                      &tdd_table_tlv,
+                      ppWritePackedMsg,
+                      end,
+                      &pack_nr_tdd_table_10_04);
+    numTLVs++;
+#else
     nfapi_nr_tdd_table_tlv_t tdd_table_tlv = {.tl.tag = NFAPI_NR_CONFIG_TDD_TABLE, .value = &pNfapiMsg->tdd_table, .slots_per_frame = slotsperframe[pNfapiMsg->ssb_config.scs_common.value], .symbols_per_slot = number_of_symbols_per_slot  };
     retval &= pack_nr_tlv(NFAPI_NR_CONFIG_TDD_TABLE,
                       &tdd_table_tlv,
@@ -1058,6 +1067,7 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
                       end,
                       &pack_nr_tdd_table_10_04);
     numTLVs++;
+#endif
 #endif
   }
 
@@ -1249,8 +1259,16 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
        &(pNfapiMsg->ssb_table.multiple_cells_ss_pbch_in_a_carrier),
        &unpack_uint8_tlv_value},
       {NFAPI_NR_CONFIG_TDD_PERIOD_TAG, &(pNfapiMsg->tdd_table.tdd_period), &unpack_uint8_tlv_value},
+#ifdef ENABLE_10_02
       {NFAPI_NR_CONFIG_SLOT_CONFIG_TAG, NULL, &unpack_uint8_tlv_value},
+#endif
+#ifdef ENABLE_10_04
+#ifdef ENABLE_AERIAL
+      {NFAPI_NR_CONFIG_SLOT_CONFIG_TAG, NULL, &unpack_nr_tdd_table_10_04},
+#else
       {NFAPI_NR_CONFIG_TDD_TABLE, NULL, &unpack_nr_tdd_table_10_04},
+#endif
+#endif
       {NFAPI_NR_CONFIG_RSSI_MEASUREMENT_TAG, &(pNfapiMsg->measurement_config.rssi_measurement), &unpack_uint8_tlv_value},
       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV4_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv4), &unpack_ipv4_address_value},
       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv6), &unpack_ipv6_address_value},
@@ -1261,7 +1279,12 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_address_ipv6), &unpack_ipv6_address_value},
       {NFAPI_NR_NFAPI_P7_PNF_PORT_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_port), &unpack_uint16_tlv_value}};
 
+#ifdef ENABLE_AERIAL
+  nfapi_nr_tdd_table_tlv_t tdd_table_tlv = {.tl.tag = NFAPI_NR_CONFIG_SLOT_CONFIG_TAG};
+#else
   nfapi_nr_tdd_table_tlv_t tdd_table_tlv = {.tl.tag = NFAPI_NR_CONFIG_TDD_TABLE};
+#endif
+
   pull8(ppReadPackedMsg, &pNfapiMsg->num_tlv, end);
 
   pNfapiMsg->vendor_extension = malloc(sizeof(&(pNfapiMsg->vendor_extension)));
@@ -1285,10 +1308,16 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
         }
         int result = 0;
         switch (generic_tl.tag) {
+#ifdef ENABLE_10_04
+#ifdef ENABLE_AERIAL
+          case NFAPI_NR_CONFIG_SLOT_CONFIG_TAG:
+#else
           case NFAPI_NR_CONFIG_TDD_TABLE:
+#endif
             unpack_fns[idx].tlv = &generic_tl;
             result = (*unpack_fns[idx].unpack_func)(&tdd_table_tlv, ppReadPackedMsg, end);
             break;
+#endif
           case NFAPI_NR_CONFIG_NUM_PRACH_FD_OCCASIONS_TAG:
             pNfapiMsg->prach_config.num_prach_fd_occasions.tl.tag = generic_tl.tag;
             pNfapiMsg->prach_config.num_prach_fd_occasions.tl.length = generic_tl.length;
@@ -1436,6 +1465,7 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
                                                     end);
             config_beam_idx++;
             break;
+#ifdef ENABLE_10_02
           case NFAPI_NR_CONFIG_SLOT_CONFIG_TAG:
             unpack_fns[idx].tlv = &(pNfapiMsg->tdd_table.max_tdd_periodicity_list[tdd_periodicity_idx]
                                         .max_num_of_symbol_per_slot_list[symbol_per_slot_idx]
@@ -1456,6 +1486,7 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
               tdd_periodicity_idx++;
             }
             break;
+#endif
           default:
             result = (*unpack_fns[idx].unpack_func)(tl, ppReadPackedMsg, end);
             break;
