@@ -586,6 +586,111 @@ static NR_MeasGapConfig_t *get_gap_config_from_smtc(const NR_SSB_MTC_t *ssb_mtc)
   return measGapConfig;
 }
 
+/** @brief return Measurement Gap Repetition Period from ASN.1 config */
+static int get_mgrp(long mgrp)
+{
+  switch (mgrp) {
+    case NR_GapConfig__mgrp_ms20:
+      return 20;
+    case NR_GapConfig__mgrp_ms40:
+      return 40;
+    case NR_GapConfig__mgrp_ms80:
+      return 80;
+    case NR_GapConfig__mgrp_ms160:
+      return 160;
+    default:
+      LOG_E(NR_MAC, "Invalid MGRP %ld\n", mgrp);
+    return -1;
+  }
+}
+
+/** @brief Return Measurement Gap Length from ASN.1 config */
+static float get_mgl(long mgl)
+{
+  switch (mgl) {
+    case NR_GapConfig__mgl_ms1dot5:
+      return 1.5;
+    case NR_GapConfig__mgl_ms3:
+      return 3.0;
+    case NR_GapConfig__mgl_ms3dot5:
+      return 3.5;
+    case NR_GapConfig__mgl_ms4:
+      return 4;
+    case NR_GapConfig__mgl_ms5dot5:
+      return 5.5;
+    case NR_GapConfig__mgl_ms6:
+      return 6;
+    default:
+      LOG_E(NR_MAC, "Invalid MGL %ld\n", mgl);
+    return -1;
+  }
+}
+
+/** @brief Return Measurement Gap Timing Advance, from ASN.1 config */
+static float get_mgta(long mgta)
+{
+  switch (mgta) {
+    case NR_GapConfig__mgta_ms0:
+      return 0.0;
+    case NR_GapConfig__mgta_ms0dot25:
+      return 0.25;
+    case NR_GapConfig__mgta_ms0dot5:
+      return 0.5;
+    default:
+      LOG_E(NR_MAC, "Invalid MGTA %ld\n", mgta);
+    return -1;
+  }
+}
+
+/** @brief Return Measurement Gap Configuration, from ASN.1 config */
+static const NR_GapConfig_t *get_gap_config(const NR_MeasGapConfig_t *mgc)
+{
+  if (mgc->gapFR2 && mgc->gapFR2->present == NR_SetupRelease_GapConfig_PR_setup)
+    return mgc->gapFR2->choice.setup;
+
+  // FR1 case
+  if (!mgc->ext1)
+    return NULL;
+
+  const NR_SetupRelease_GapConfig_t *gapUE = mgc->ext1->gapUE;
+  if (gapUE && gapUE->present == NR_SetupRelease_GapConfig_PR_setup)
+    return gapUE->choice.setup;
+
+  const NR_SetupRelease_GapConfig_t *gapFR1 = mgc->ext1->gapFR1;
+  if (gapFR1 && gapFR1->present == NR_SetupRelease_GapConfig_PR_setup)
+    return gapFR1->choice.setup;
+
+  return NULL;
+}
+
+/** @brief Get configuration values from Measurement Gap Configuration */
+static void update_measgap_config(NR_UE_info_t *UE)
+{
+  const NR_GapConfig_t *gap_config = get_gap_config(UE->measGapConfig);
+  if (!gap_config)
+    return;
+
+  int scs = UE->current_DL_BWP.scs;
+
+  measgap_config_t *mgc = &UE->measgap_config;
+  mgc->mgrp = get_mgrp(gap_config->mgrp);
+  DevAssert(mgc->mgrp != -1);
+  mgc->gapOffset = gap_config->gapOffset;
+  mgc->n_slots_mgta = ((int)(10 * get_mgta(gap_config->mgta)) << scs) / 10;
+
+  // We start the timer K2 slots earlier to avoid scheduling feedback PUCCHs inside measGap
+  // TS 38.214 - Table 6.1.2.1.1.2
+  const int max_k2 = 3;
+
+  mgc->n_slots_advance = mgc->n_slots_mgta + max_k2;
+
+  mgc->mgl = get_mgl(gap_config->mgl);
+  DevAssert(mgc->mgl != -1);
+  mgc->mgl_slots = ((int)(10 * (mgc->mgl + max_k2)) << scs) / 10;
+
+  mgc->enable = true;
+}
+
 void ue_context_setup_request(const f1ap_ue_context_setup_t *req)
 {
   gNB_MAC_INST *mac = RC.nrmac[0];
@@ -688,6 +793,7 @@ void ue_context_setup_request(const f1ap_ue_context_setup_t *req)
                                                         1024);
     AssertFatal(enc_rval_mgc.encoded > 0, "Could not encode CellGroup, failed element %s\n", enc_rval_mgc.failed_type->name);
     resp.du_to_cu_rrc_information->measGapConfig_length = (enc_rval_mgc.encoded + 7) >> 3;
+    update_measgap_config(UE);
   }
 
   nr_mac_prepare_cellgroup_update(mac, UE, new_CellGroup);

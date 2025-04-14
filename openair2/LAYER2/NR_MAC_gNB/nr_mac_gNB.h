@@ -746,6 +746,16 @@ typedef struct nr_mac_rrc_ul_if_s {
   initial_ul_rrc_message_transfer_func_t initial_ul_rrc_message_transfer;
 } nr_mac_rrc_ul_if_t;
 
+typedef struct measgap_config {
+  bool enable;
+  int mgrp;
+  int gapOffset;
+  int n_slots_mgta;
+  int n_slots_advance;
+  float mgl;
+  int mgl_slots;
+} measgap_config_t;
+
 typedef enum interrupt_followup_action { FOLLOW_INSYNC, FOLLOW_INSYNC_RECONFIG, FOLLOW_OUTOFSYNC, FOLLOW_ACTIVE } interrupt_followup_action_t;
 
 /*! \brief UE list used by gNB to order UEs/CC for scheduling*/
@@ -770,6 +780,7 @@ typedef struct {
   NR_UE_NR_Capability_t *capability;
   NR_MeasConfig_t *meas_config;
   NR_MeasGapConfig_t *measGapConfig;
+  measgap_config_t measgap_config;
   // UE selected beam index
   uint8_t UE_beam_index;
   bool Msg4_MsgB_ACKed;
