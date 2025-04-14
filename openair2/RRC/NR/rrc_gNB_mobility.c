@@ -134,6 +134,20 @@ static void nr_initiate_handover(const gNB_RRC_INST *rrc,
       .handoverPreparationInfo_length = ho_prep_len,
   };
 
+  uint8_t buf_mc[NR_RRC_BUF_SIZE];
+  free_MeasConfig(ue->measConfig);
+  ue->measConfig = nr_rrc_get_measconfig(rrc, target_du->setup_req->cell[0].info.nr_cellid);
+  int size = do_NR_MeasConfig(ue->measConfig, buf_mc, NR_RRC_BUF_SIZE);
+  cu2du.measConfig = buf_mc;
+  cu2du.measConfig_length = size;
+
+  uint8_t buf_mtc[NR_RRC_BUF_SIZE];
+  if (target_du->mtc) {
+    int size = do_NR_MeasurementTimingConfiguration(target_du->mtc, buf_mtc, NR_RRC_BUF_SIZE);
+    cu2du.measurementTimingConfiguration = buf_mtc;
+    cu2du.measurementTimingConfiguration_length = size;
+  }
+
   f1ap_drb_to_be_setup_t drbs[MAX_DRBS_PER_UE] = {0};
   int nb_drb = 0;
   for (int i = 0; i < sizeofArray(drbs); ++i) {
