@@ -714,12 +714,41 @@ printf("%d\n", slot);
                                 .timer_config.n311 = 1,
                                 .timer_config.t319 = 400,
                                 .num_agg_level_candidates = {0, 0, 1, 1, 0}};
+  const nr_pdcp_configuration_t pdcp_config = {
+    .drb.sn_size = 18,
+    .drb.t_reordering = 100,
+    .drb.discard_timer = -1
+  };
+  const nr_rlc_configuration_t rlc_config = {
+    .srb = {
+      .t_poll_retransmit = 45,
+      .t_reassembly = 35,
+      .t_status_prohibit = 0,
+      .poll_pdu = -1,
+      .poll_byte = -1,
+      .max_retx_threshold = 8,
+      .sn_field_length = 12,
+    },
+    .drb_am = {
+      .t_poll_retransmit = 45,
+      .t_reassembly = 15,
+      .t_status_prohibit = 15,
+      .poll_pdu = 64,
+      .poll_byte = 1024 * 500,
+      .max_retx_threshold = 32,
+      .sn_field_length = 18,
+    },
+    .drb_um = {
+      .t_reassembly = 15,
+      .sn_field_length = 12,
+    }
+  };
 
   RC.nb_nr_macrlc_inst = 1;
   RC.nb_nr_mac_CC = (int*)malloc(RC.nb_nr_macrlc_inst*sizeof(int));
   for (i = 0; i < RC.nb_nr_macrlc_inst; i++)
     RC.nb_nr_mac_CC[i] = 1;
-  mac_top_init_gNB(ngran_gNB, scc, NULL, &conf);
+  mac_top_init_gNB(ngran_gNB, scc, NULL, &conf, &pdcp_config, &rlc_config);
   gNB_mac = RC.nrmac[0];
   nr_mac_config_scc(RC.nrmac[0], scc, &conf);
 
@@ -781,7 +810,7 @@ printf("%d\n", slot);
   NR_UE_NR_Capability_t *UE_Capability_nr = CALLOC(1,sizeof(NR_UE_NR_Capability_t));
   prepare_sim_uecap(UE_Capability_nr, scc, mu, N_RB_DL, g_mcsTableIdx, 0);
 
-  NR_CellGroupConfig_t *secondaryCellGroup = get_default_secondaryCellGroup(scc, scd, UE_Capability_nr, 0, 1, &conf, 0);
+  NR_CellGroupConfig_t *secondaryCellGroup = get_default_secondaryCellGroup(scc, scd, UE_Capability_nr, 0, 1, &conf, &rlc_config, 0);
 
   /* -U option modify DMRS */
   if(modify_dmrs) {

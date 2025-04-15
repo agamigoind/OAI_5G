@@ -3337,7 +3337,8 @@ static NR_SpCellConfig_t *get_initial_SpCellConfig(int uid,
 NR_CellGroupConfig_t *get_initial_cellGroupConfig(int uid,
                                                   const NR_ServingCellConfigCommon_t *scc,
                                                   const NR_ServingCellConfig_t *servingcellconfigdedicated,
-                                                  const nr_mac_config_t *configuration)
+                                                  const nr_mac_config_t *configuration,
+                                                  const nr_rlc_configuration_t *default_rlc_config)
 {
   NR_CellGroupConfig_t *cellGroupConfig = calloc(1, sizeof(*cellGroupConfig));
   cellGroupConfig->cellGroupId = 0;
@@ -3346,7 +3347,7 @@ NR_CellGroupConfig_t *get_initial_cellGroupConfig(int uid,
   /* TS38.331 9.2.1	Default SRB configurations */
   cellGroupConfig->rlc_BearerToAddModList = calloc(1, sizeof(*cellGroupConfig->rlc_BearerToAddModList));
   NR_RLC_BearerConfig_t *rlc_BearerConfig =
-      get_SRB_RLC_BearerConfig(1, 1, NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration_ms1000);
+      get_SRB_RLC_BearerConfig(1, 1, NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration_ms1000, default_rlc_config);
   asn1cSeqAdd(&cellGroupConfig->rlc_BearerToAddModList->list, rlc_BearerConfig);
 
   cellGroupConfig->rlc_BearerToReleaseList = NULL;
@@ -3534,6 +3535,7 @@ NR_CellGroupConfig_t *get_default_secondaryCellGroup(const NR_ServingCellConfigC
                                                      int scg_id,
                                                      int servCellIndex,
                                                      const nr_mac_config_t *configuration,
+                                                     const nr_rlc_configuration_t *default_rlc_config,
                                                      int uid)
 {
   const nr_pdsch_AntennaPorts_t *pdschap = &configuration->pdsch_AntennaPorts;
@@ -3552,7 +3554,7 @@ NR_CellGroupConfig_t *get_default_secondaryCellGroup(const NR_ServingCellConfigC
   secondaryCellGroup->cellGroupId = scg_id;
   /* LCID is 4 because the RLC layer requires it to be 3+rb_id; the rb_id is 1
    * for first RB. We pre-configure RLC UM Bi-directional, priority is 1 */
-  NR_RLC_BearerConfig_t *RLC_BearerConfig = get_DRB_RLC_BearerConfig(4, 1, NR_RLC_Config_PR_um_Bi_Directional, 1);
+  NR_RLC_BearerConfig_t *RLC_BearerConfig = get_DRB_RLC_BearerConfig(4, 1, NR_RLC_Config_PR_um_Bi_Directional, 1, default_rlc_config);
 
   secondaryCellGroup->rlc_BearerToAddModList = calloc(1, sizeof(*secondaryCellGroup->rlc_BearerToAddModList));
   asn1cSeqAdd(&secondaryCellGroup->rlc_BearerToAddModList->list, RLC_BearerConfig);
