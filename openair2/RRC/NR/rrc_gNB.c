@@ -818,7 +818,21 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
   nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
 }
 
-//-----------------------------------------------------------------------------
+typedef struct deliver_ue_ctxt_modification_data_t {
+  gNB_RRC_INST *rrc;
+  f1ap_ue_context_modif_req_t *modification_req;
+  sctp_assoc_t assoc_id;
+} deliver_ue_ctxt_modification_data_t;
+
+static void rrc_deliver_ue_ctxt_modif_req(void *deliver_pdu_data, ue_id_t ue_id, int srb_id, char *buf, int size, int sdu_id)
+{
+  DevAssert(deliver_pdu_data != NULL);
+  deliver_ue_ctxt_modification_data_t *data = deliver_pdu_data;
+  data->modification_req->rrc_container = (uint8_t *)buf;
+  data->modification_req->rrc_container_length = size;
+  data->rrc->mac_rrc.ue_context_modification_request(data->assoc_id, data->modification_req);
+}
+
 void rrc_gNB_generate_dedicatedRRCReconfiguration_release(gNB_RRC_INST *rrc,
                                                           gNB_RRC_UE_t *ue_p,
                                                           uint8_t xid,
@@ -1117,7 +1131,7 @@ static void rrc_gNB_process_RRCReestablishmentComplete(gNB_RRC_INST *rrc, gNB_RR
                                    DRBs,
                                    NULL,
                                    NULL,
-                                   NULL, // MeasObj_list,
+                                   ue_p->measConfig,
                                    NULL,
                                    cellGroupConfig);
   freeSRBlist(SRBs);
@@ -1130,8 +1144,38 @@ static void rrc_gNB_process_RRCReestablishmentComplete(gNB_RRC_INST *rrc, gNB_RR
         ue_p->rrc_ue_id,
         ue_p->rnti,
         size);
-  const uint32_t msg_id = NR_DL_DCCH_MessageType__c1_PR_rrcReconfiguration;
-  nr_rrc_transfer_protected_rrc_message(rrc, ue_p, DL_SCH_LCID_DCCH, msg_id, buffer, size);
+
+  cu_to_du_rrc_information_t *cu2du_p = NULL;
+  cu_to_du_rrc_information_t cu2du = {0};
+  uint8_t buf_mc[NR_RRC_BUF_SIZE];
+  if (ue_p->measConfig) {
+    cu2du_p = &cu2du;
+    int size = do_NR_MeasConfig(ue_p->measConfig, buf_mc, NR_RRC_BUF_SIZE);
+    cu2du.measConfig = buf_mc;
+    cu2du.measConfig_length = size;
+  }
+
+  f1_ue_data_t ue_data = cu_get_f1_ue_data(ue_p->rrc_ue_id);
+  f1ap_ue_context_modif_req_t ue_context_modif_req = {
+      .gNB_CU_ue_id = ue_p->rrc_ue_id,
+      .gNB_DU_ue_id = ue_data.secondary_ue,
+      .plmn.mcc = rrc->configuration.plmn[0].mcc,
+      .plmn.mnc = rrc->configuration.plmn[0].mnc,
+      .plmn.mnc_digit_length = rrc->configuration.plmn[0].mnc_digit_length,
+      .nr_cellid = rrc->nr_cellid,
+      .servCellId = 0,
+      .cu_to_du_rrc_information = cu2du_p,
+  };
+  deliver_ue_ctxt_modification_data_t data = {.rrc = rrc,
+                                              .modification_req = &ue_context_modif_req,
+                                              .assoc_id = ue_data.du_assoc_id};
+  nr_pdcp_data_req_srb(ue_p->rrc_ue_id,
+                       DL_SCH_LCID_DCCH,
+                       rrc_gNB_mui++,
+                       size,
+                       (unsigned char *const)buffer,
+                       rrc_deliver_ue_ctxt_modif_req,
+                       &data);
 }
 //-----------------------------------------------------------------------------
 

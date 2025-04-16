@@ -843,6 +843,11 @@ void ue_context_modification_request(const f1ap_ue_context_modif_req_t *req)
   if (ue_meas_config) {
     ASN_STRUCT_FREE(asn_DEF_NR_MeasConfig, UE->meas_config);
     UE->meas_config = ue_meas_config;
+    if (UE->meas_config->measGapConfig) {
+      ASN_STRUCT_FREE(asn_DEF_NR_MeasGapConfig, UE->measGapConfig);
+      UE->measGapConfig = UE->meas_config->measGapConfig;
+      update_measgap_config(UE);
+    }
   }
 
   NR_CellGroupConfig_t *new_CellGroup = clone_CellGroupConfig(UE->CellGroup);
