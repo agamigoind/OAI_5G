@@ -2,13 +2,18 @@
 macro(add_physim_test test_gen test_exec test_description test_label)
   # catch all the arguments past the last expected arqument and store them in the options_list
   set(options_list ${ARGN})
+  set(test_name physim.${test_gen}.${test_exec}.${test_description})
   add_test(
-    NAME physim.${test_gen}.${test_exec}.${test_description}
+    NAME ${test_name}
     COMMAND ${test_exec} ${options_list}
     COMMAND_EXPAND_LISTS
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
    )
-   set_tests_properties(physim.${test_gen}.${test_exec}.${test_description} PROPERTIES LABELS "${test_exec} ${test_label}")
+   set_tests_properties(${test_name} PROPERTIES
+     LABELS "${test_exec}: ${test_label};${test_exec}"
+     ENVIRONMENT "LD_LIBRARY_PATH=."
+   )
+
    add_dependencies(tests ${test_exec} coding)
 endmacro()
 
