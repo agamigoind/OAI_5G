@@ -1093,6 +1093,7 @@ int rrc_gNB_process_NGAP_PDUSESSION_MODIFY_REQ(MessageDef *msg_p, instance_t ins
     }
     ngap_pdusession_modify_resp_t *msg = &NGAP_PDUSESSION_MODIFY_RESP(msg_fail_p);
     msg->gNB_ue_ngap_id = req->gNB_ue_ngap_id;
+    msg->amf_ue_ngap_id = req->amf_ue_ngap_id;
     msg->nb_of_pdusessions = 0;
 
     for (int i = 0; i < UE->nb_of_pdusessions; i++) {
