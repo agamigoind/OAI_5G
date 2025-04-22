@@ -31,6 +31,27 @@
 #include "ngap_messages_types.h"
 #include "oai_asn1.h"
 
+/** @brief Deep copy an instance of struct pdusession_t */
+void cp_pdusession(pdusession_t *dst, const pdusession_t *src)
+{
+  // Shallow copy
+  *dst = *src;
+
+  // nas_pdu
+  dst->nas_pdu.buffer = NULL;
+  if (src->nas_pdu.buffer && src->nas_pdu.length > 0) {
+    dst->nas_pdu.buffer = malloc_or_fail(src->nas_pdu.length);
+    memcpy(dst->nas_pdu.buffer, src->nas_pdu.buffer, src->nas_pdu.length);
+  }
+
+  // pdusessionTransfer
+  dst->pdusessionTransfer.buffer = NULL;
+  if (src->pdusessionTransfer.buffer && src->pdusessionTransfer.length > 0) {
+    dst->pdusessionTransfer.buffer = malloc_or_fail(src->pdusessionTransfer.length);
+    memcpy(dst->pdusessionTransfer.buffer, src->pdusessionTransfer.buffer, src->pdusessionTransfer.length);
+  }
+}
+
 /** @brief Retrieves PDU Session for the input ID
  *  @return pointer to the found PDU Session, NULL if not found */
 rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id)
@@ -55,11 +76,7 @@ pdusession_t *add_pduSession(gNB_RRC_UE_t *ue, const pdusession_t *in)
   memset(rrc_pdu_session, 0, sizeof(*rrc_pdu_session));
 
   pdusession_t *session = &rrc_pdu_session->param;
-  session->pdusession_id = in->pdusession_id;
-  session->pdu_session_type = in->pdu_session_type;
-  session->nas_pdu = in->nas_pdu;
-  session->pdusessionTransfer = in->pdusessionTransfer;
-  session->nssai = in->nssai;
+  cp_pdusession(&rrc_pdu_session->param, in);
 
   ue->nb_of_pdusessions++;
   LOG_I(NR_RRC, "Added PDU Session %d, total number of PDU Sessions = %d\n", session->pdusession_id, ue->nb_of_pdusessions);
