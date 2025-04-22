@@ -269,3 +269,10 @@ bool drb_is_active(gNB_RRC_UE_t *ue, uint8_t drb_id)
     return DRB_INACTIVE;
   return drb->status != DRB_INACTIVE;
 }
+
+void rrc_mark_pdu_session_as_failed(rrc_pdu_session_param_t *session, ngap_cause_t cause, uint8_t xid)
+{
+  session->xid = xid;
+  session->status = PDU_SESSION_STATUS_FAILED;
+  session->cause = cause;
+}

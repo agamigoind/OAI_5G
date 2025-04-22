@@ -603,9 +603,7 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
 
     if (j == MAX_DRBS_PER_UE) {
       ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CauseRadioNetwork_unspecified};
-      ue_p->pduSession[i].xid = xid;
-      ue_p->pduSession[i].status = PDU_SESSION_STATUS_FAILED;
-      ue_p->pduSession[i].cause = cause;
+      rrc_mark_pdu_session_as_failed(&ue_p->pduSession[i], cause, xid);
       continue;
     }
 
@@ -627,9 +625,7 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
         default:
           LOG_E(NR_RRC, "not supported 5qi %lu\n", ue_p->pduSession[i].param.qos[qos_flow_index].fiveQI);
           ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CauseRadioNetwork_not_supported_5QI_value};
-          ue_p->pduSession[i].status = PDU_SESSION_STATUS_FAILED;
-          ue_p->pduSession[i].xid = xid;
-          ue_p->pduSession[i].cause = cause;
+          rrc_mark_pdu_session_as_failed(&ue_p->pduSession[i], cause, xid);
           continue;
       }
         LOG_I(NR_RRC,

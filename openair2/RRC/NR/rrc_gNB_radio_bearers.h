@@ -87,4 +87,7 @@ void cp_pdusession(pdusession_t *dst, const pdusession_t *src);
 /// @brief ...
 int remove_pduSession(int module_id, gNB_RRC_UE_t *ue);
 
+/// @brief Marks PDU Session as failed and fills relevant params
+void rrc_mark_pdu_session_as_failed(rrc_pdu_session_param_t *session, ngap_cause_t cause, uint8_t xid);
+
 #endif

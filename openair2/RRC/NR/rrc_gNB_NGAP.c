@@ -1403,10 +1403,9 @@ int rrc_gNB_process_NGAP_PDUSESSION_RELEASE_COMMAND(MessageDef *msg_p, instance_
     if (!pduSession) {
       LOG_I(NR_RRC, "PDU session %d not found; marking as FAILED\n", session_id);
       int j = UE->nb_of_pdusessions++;
-      UE->pduSession[j].status = PDU_SESSION_STATUS_FAILED;
       UE->pduSession[j].param.pdusession_id = session_id;
       ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CAUSE_RADIO_NETWORK_UNKNOWN_PDU_SESSION_ID};
-      UE->pduSession[j].cause = cause;
+      rrc_mark_pdu_session_as_failed(&UE->pduSession[j], cause, xid);
       continue;
     }
 
