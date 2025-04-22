@@ -969,8 +969,9 @@ static void fill_qos2(NGAP_QosFlowAddOrModifyRequestList_t *qos, pdusession_t *s
   session->nb_qos = qos->list.count;
 }
 
-static void decodePDUSessionResourceModify(pdusession_t *param, const ngap_pdu_t pdu)
+static void decodePDUSessionResourceModify(pdusession_t *session)
 {
+  const ngap_pdu_t pdu = session->pdusessionTransfer;
   NGAP_PDUSessionResourceModifyRequestTransfer_t *pdusessionTransfer = NULL;
   asn_dec_rval_t dec_rval = aper_decode(NULL, &asn_DEF_NGAP_PDUSessionResourceModifyRequestTransfer, (void **)&pdusessionTransfer, pdu.buffer, pdu.length, 0, 0);
 
@@ -1002,7 +1003,7 @@ static void decodePDUSessionResourceModify(pdusession_t *param, const ngap_pdu_t
 
         /* optional QosFlowAddOrModifyRequestList */
       case NGAP_ProtocolIE_ID_id_QosFlowAddOrModifyRequestList:
-        fill_qos2(&pdusessionTransfer_ies->value.choice.QosFlowAddOrModifyRequestList, param);
+        fill_qos2(&pdusessionTransfer_ies->value.choice.QosFlowAddOrModifyRequestList, session);
         break;
 
         /* optional QosFlowToReleaseList */
@@ -1119,81 +1120,84 @@ int rrc_gNB_send_NGAP_PDUSESSION_MODIFY_RESP(gNB_RRC_INST *rrc, gNB_RRC_UE_t *UE
   return 0;
 }
 
-//------------------------------------------------------------------------------
-int rrc_gNB_process_NGAP_PDUSESSION_MODIFY_REQ(MessageDef *msg_p, instance_t instance)
-//------------------------------------------------------------------------------
+/** @brief Handle abnormal conditions in PDU Session Modify procedure.
+ * Send a response with failed of PDU sessions only, for all PDU Sessions in the request */
+static int rrc_gNB_NGAP_PDUSESSION_MODIFY_failure(int module_id, const ngap_pdusession_modify_req_t *req, const ngap_cause_t cause)
 {
-  rrc_gNB_ue_context_t *ue_context_p = NULL;
+  MessageDef *msg_p = itti_alloc_new_message (TASK_RRC_GNB, module_id, NGAP_PDUSESSION_MODIFY_RESP);
+  if (msg_p == NULL) {
+    LOG_E(NR_RRC, "itti_alloc_new_message failed, msg_p is NULL \n");
+    return -1;
+  }
+  ngap_pdusession_modify_resp_t *resp = &NGAP_PDUSESSION_MODIFY_RESP(msg_p);
+  resp->amf_ue_ngap_id = req->amf_ue_ngap_id;
+  resp->gNB_ue_ngap_id = req->gNB_ue_ngap_id;
+  resp->nb_of_pdusessions_failed = req->nb_pdusessions_tomodify;
+  resp->pdusessions_failed->cause = cause;
+  for (int i = 0; i < req->nb_pdusessions_tomodify; i++)
+    resp->pdusessions_failed[i].pdusession_id = req->pdusession_modify_params[i].pdusession_id;
+  itti_send_msg_to_task(TASK_NGAP, module_id, msg_p);
+  return 0;
+}
 
+int rrc_gNB_process_NGAP_PDUSESSION_MODIFY_REQ(MessageDef *msg_p, instance_t instance)
+{
   ngap_pdusession_modify_req_t *req = &NGAP_PDUSESSION_MODIFY_REQ(msg_p);
-
   gNB_RRC_INST *rrc = RC.nrrrc[instance];
-  ue_context_p = rrc_gNB_get_ue_context(rrc, req->gNB_ue_ngap_id);
+  rrc_gNB_ue_context_t *ue_context_p = rrc_gNB_get_ue_context(rrc, req->gNB_ue_ngap_id);
+
   if (ue_context_p == NULL) {
     LOG_W(NR_RRC, "[gNB %ld] In NGAP_PDUSESSION_MODIFY_REQ: unknown UE from NGAP ids (%u)\n", instance, req->gNB_ue_ngap_id);
-    // TO implement return setup failed
-    return (-1);
+    ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CAUSE_RADIO_NETWORK_INCONSISTENT_REMOTE_UE_NGAP_ID};
+    rrc_gNB_NGAP_PDUSESSION_MODIFY_failure(rrc->module_id, req, cause);
+    return -1;
   }
   gNB_RRC_UE_t *UE = &ue_context_p->ue_context;
+  if (UE->amf_ue_ngap_id != req->amf_ue_ngap_id) {
+    LOG_W(NR_RRC,
+          "Stored amf_ue_ngap_id %ld for UE %x does not match the requested one %ld\n",
+          UE->amf_ue_ngap_id,
+          UE->rrc_ue_id,
+          req->amf_ue_ngap_id);
+    ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CAUSE_RADIO_NETWORK_INCONSISTENT_REMOTE_UE_NGAP_ID};
+    rrc_gNB_NGAP_PDUSESSION_MODIFY_failure(rrc->module_id, req, cause);
+    return -1;
+  }
+
+  uint8_t xid = rrc_gNB_get_next_transaction_identifier(rrc->module_id);
   bool all_failed = true;
   for (int i = 0; i < req->nb_pdusessions_tomodify; i++) {
-    rrc_pdu_session_param_t *sess;
-    const pdusession_t *sessMod = req->pdusession_modify_params + i;
-    for (sess = UE->pduSession; sess < UE->pduSession + UE->nb_of_pdusessions; sess++)
-      if (sess->param.pdusession_id == sessMod->pdusession_id)
-        break;
-    if (sess == UE->pduSession + UE->nb_of_pdusessions) {
+    const pdusession_t *session_to_mod = req->pdusession_modify_params + i;
+    rrc_pdu_session_param_t *session = find_pduSession(UE, session_to_mod->pdusession_id);
+    if (!session) {
       LOG_W(NR_RRC, "Requested modification of non-existing PDU session, refusing modification\n");
-      UE->nb_of_pdusessions++;
-      sess->status = PDU_SESSION_STATUS_FAILED;
-      sess->param.pdusession_id = sessMod->pdusession_id;
-      sess->cause.type = NGAP_CAUSE_RADIO_NETWORK;
-      UE->pduSession[i].cause.type = NGAP_CAUSE_RADIO_NETWORK;
-      UE->pduSession[i].cause.value = NGAP_CAUSE_RADIO_NETWORK_UNKNOWN_PDU_SESSION_ID;
+      pdusession_t *p = add_pduSession(UE, session_to_mod);
+      if (!p) {
+        LOG_W(NR_RRC, "Could not add PDU Session to the list for UE %d\n", req->gNB_ue_ngap_id);
+        return -1;
+      }
+      ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CAUSE_RADIO_NETWORK_UNKNOWN_PDU_SESSION_ID};
+      rrc_mark_pdu_session_as_failed(&UE->pduSession[UE->nb_of_pdusessions], cause, xid);
     } else {
       all_failed = false;
-      sess->status = PDU_SESSION_STATUS_NEW;
-      sess->param.pdusession_id = sessMod->pdusession_id;
-      sess->cause.type = NGAP_CAUSE_RADIO_NETWORK;
-      sess->cause.value = NGAP_CAUSE_RADIO_NETWORK_MULTIPLE_PDU_SESSION_ID_INSTANCES;
-      sess->status = PDU_SESSION_STATUS_NEW;
-      sess->param.pdusession_id = sessMod->pdusession_id;
-      sess->cause.type = NGAP_CAUSE_NOTHING;
-      if (sessMod->nas_pdu.buffer != NULL) {
-        UE->pduSession[i].param.nas_pdu = sessMod->nas_pdu;
-      }
+      session->status = PDU_SESSION_STATUS_NEW;
       // Save new pdu session parameters, qos, upf addr, teid
-      decodePDUSessionResourceModify(&sess->param, UE->pduSession[i].param.pdusessionTransfer);
-      sess->param.UPF_addr_N3 = sessMod->upf_addr;
-      sess->param.UPF_teid_N3 = sessMod->gtp_teid;
+      cp_pdusession(&session->param, session_to_mod);
+      decodePDUSessionResourceModify(&session->param);
     }
   }
 
   if (!all_failed) {
     rrc_gNB_modify_dedicatedRRCReconfiguration(rrc, UE);
   } else {
-    LOG_I(NR_RRC,
-          "pdu session modify failed, fill NGAP_PDUSESSION_MODIFY_RESP with the pdu session information that failed to modify \n");
     MessageDef *msg_fail_p = itti_alloc_new_message(TASK_RRC_GNB, 0, NGAP_PDUSESSION_MODIFY_RESP);
     if (msg_fail_p == NULL) {
       LOG_E(NR_RRC, "itti_alloc_new_message failed, msg_fail_p is NULL \n");
-      return (-1);
+      return -1;
     }
-    ngap_pdusession_modify_resp_t *msg = &NGAP_PDUSESSION_MODIFY_RESP(msg_fail_p);
-    msg->gNB_ue_ngap_id = req->gNB_ue_ngap_id;
-    msg->amf_ue_ngap_id = req->amf_ue_ngap_id;
-    msg->nb_of_pdusessions = 0;
-
-    for (int i = 0; i < UE->nb_of_pdusessions; i++) {
-      if (UE->pduSession[i].status == PDU_SESSION_STATUS_FAILED) {
-        msg->pdusessions_failed[i].pdusession_id = UE->pduSession[i].param.pdusession_id;
-        msg->pdusessions_failed[i].cause.type = UE->pduSession[i].cause.type;
-        msg->pdusessions_failed[i].cause.value = UE->pduSession[i].cause.value;
-      }
-    }
-    itti_send_msg_to_task(TASK_NGAP, instance, msg_fail_p);
+    rrc_gNB_send_NGAP_PDUSESSION_MODIFY_RESP(rrc, UE, xid);
   }
-  return (0);
+  return 0;
 }
 
 //------------------------------------------------------------------------------
