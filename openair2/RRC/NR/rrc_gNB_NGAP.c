@@ -1374,13 +1374,10 @@ void rrc_gNB_send_NGAP_PDUSESSION_RELEASE_RESPONSE(gNB_RRC_INST *rrc, gNB_RRC_UE
   itti_send_msg_to_task (TASK_NGAP, rrc->module_id, msg_p);
 }
 
-//------------------------------------------------------------------------------
 int rrc_gNB_process_NGAP_PDUSESSION_RELEASE_COMMAND(MessageDef *msg_p, instance_t instance)
-//------------------------------------------------------------------------------
 {
-  uint32_t gNB_ue_ngap_id;
   ngap_pdusession_release_command_t *cmd = &NGAP_PDUSESSION_RELEASE_COMMAND(msg_p);
-  gNB_ue_ngap_id = cmd->gNB_ue_ngap_id;
+  uint32_t gNB_ue_ngap_id = cmd->gNB_ue_ngap_id;
   gNB_RRC_INST *rrc = RC.nrrrc[instance];
   rrc_gNB_ue_context_t *ue_context_p = rrc_gNB_get_ue_context(rrc, gNB_ue_ngap_id);
 
@@ -1389,50 +1386,59 @@ int rrc_gNB_process_NGAP_PDUSESSION_RELEASE_COMMAND(MessageDef *msg_p, instance_
     return -1;
   }
 
-  LOG_I(NR_RRC, "[gNB %ld] gNB_ue_ngap_id %u \n", instance, gNB_ue_ngap_id);
+  LOG_I(NR_RRC,
+        "PDU Session Release Command: AMF_UE_NGAP_ID %lu rrc_ue_id %u PDU Sessions To Release = %d\n",
+        cmd->amf_ue_ngap_id,
+        gNB_ue_ngap_id,
+        cmd->nb_pdusessions_torelease);
+
   gNB_RRC_UE_t *UE = &ue_context_p->ue_context;
-  LOG_I(
-      NR_RRC, "PDU Session Release Command: AMF_UE_NGAP_ID %lu  rrc_ue_id %u release_pdusessions %d \n", cmd->amf_ue_ngap_id, gNB_ue_ngap_id, cmd->nb_pdusessions_torelease);
   bool found = false;
   uint8_t xid = rrc_gNB_get_next_transaction_identifier(rrc->module_id);
   UE->xids[xid] = RRC_PDUSESSION_RELEASE;
+
   for (int pdusession = 0; pdusession < cmd->nb_pdusessions_torelease; pdusession++) {
-    rrc_pdu_session_param_t *pduSession = find_pduSession(UE, cmd->pdusession_release_params[pdusession].pdusession_id);
+    int session_id = cmd->pdusession_release_params[pdusession].pdusession_id;
+    rrc_pdu_session_param_t *pduSession = find_pduSession(UE, session_id);
     if (!pduSession) {
-      LOG_I(NR_RRC, "no pdusession_id, AMF requested to close it id=%d\n", cmd->pdusession_release_params[pdusession].pdusession_id);
-      int j=UE->nb_of_pdusessions++;
+      LOG_I(NR_RRC, "PDU session %d not found; marking as FAILED\n", session_id);
+      int j = UE->nb_of_pdusessions++;
       UE->pduSession[j].status = PDU_SESSION_STATUS_FAILED;
-      UE->pduSession[j].param.pdusession_id = cmd->pdusession_release_params[pdusession].pdusession_id;
+      UE->pduSession[j].param.pdusession_id = session_id;
       ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CAUSE_RADIO_NETWORK_UNKNOWN_PDU_SESSION_ID};
       UE->pduSession[j].cause = cause;
       continue;
     }
-    if (pduSession->status == PDU_SESSION_STATUS_FAILED) {
-      pduSession->xid = xid;
-      continue;
-    }
-    if (pduSession->status == PDU_SESSION_STATUS_ESTABLISHED) {
-      found = true;
-      LOG_I(NR_RRC, "RELEASE pdusession %d \n", pduSession->param.pdusession_id);
-      pduSession->status = PDU_SESSION_STATUS_TORELEASE;
-      pduSession->xid = xid;
+
+    switch (pduSession->status) {
+      case PDU_SESSION_STATUS_ESTABLISHED:
+        LOG_I(NR_RRC, "PDU Session %d set to be released\n", session_id);
+        pduSession->status = PDU_SESSION_STATUS_TORELEASE;
+        pduSession->xid = xid;
+        found = true;
+        break;
+
+      case PDU_SESSION_STATUS_FAILED:
+        LOG_I(NR_RRC, "PDU session %d already FAILED, set to be removed\n", session_id);
+        pduSession->xid = xid;
+        pduSession->status = PDU_SESSION_STATUS_TORELEASE;
+        break;
+
+      default:
+        LOG_W(NR_RRC, "PDU session %d in unhandled state %d\n", session_id, pduSession->status);
+        break;
     }
   }
 
   if (found) {
-    // TODO RRCReconfiguration To UE
-    LOG_I(NR_RRC, "Send RRCReconfiguration To UE \n");
+    LOG_I(NR_RRC, "Send RRCReconfiguration To UE 0x%x\n", UE->rrc_ue_id);
     rrc_gNB_generate_dedicatedRRCReconfiguration_release(rrc, UE, xid, cmd->nas_pdu.length, cmd->nas_pdu.buffer);
   } else {
-    // gtp tunnel delete
-    LOG_I(NR_RRC, "gtp tunnel delete all tunnels for UE %04x\n", UE->rnti);
-    gtpv1u_gnb_delete_tunnel_req_t req = {0};
-    req.ue_id = UE->rnti;
-    gtpv1u_delete_ngu_tunnel(rrc->module_id, &req);
-    // NGAP_PDUSESSION_RELEASE_RESPONSE
+    remove_pduSession(rrc->module_id, UE);
     rrc_gNB_send_NGAP_PDUSESSION_RELEASE_RESPONSE(rrc, UE, xid);
     LOG_I(NR_RRC, "Send PDU Session Release Response \n");
   }
+
   return 0;
 }
 
