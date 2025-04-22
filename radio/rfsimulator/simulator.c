@@ -1021,7 +1021,7 @@ static int rfsimulator_read(openair0_device *device, openair0_timestamp *ptimest
   AssertFatal(ret == 0, "clock_gettime() failed: errno %d, %s\n", errno, strerror(errno));
 
   // Clear the output buffer
-  for (int a=0; a<nbAnt; a++)
+  for (int a = 0; a < nbAnt; a++)
     memset(samplesVoid[a],0,sampleToByte(nsamps,1));
   cf_t temp_array[nbAnt][nsamps];
   bool apply_noise_per_channel = get_noise_power_dBFS() == INVALID_DBFS_VALUE;
@@ -1041,8 +1041,8 @@ static int rfsimulator_read(openair0_device *device, openair0_timestamp *ptimest
       if (t->poll_telnetcmdq)
         t->poll_telnetcmdq(t->telnetcmd_qid,t);
 
-      for (int a=0; a<nbAnt; a++) {//loop over number of Rx antennas
-        if ( ptr->channel_model != NULL ) { // apply a channel model
+      for (int a = 0; a < nbAnt; a++) {//loop over number of Rx antennas
+        if (ptr->channel_model != NULL) { // apply a channel model
           if (num_chanmod_channels == 0) {
             memset(temp_array, 0, sizeof(temp_array));
           }
@@ -1071,16 +1071,13 @@ static int rfsimulator_read(openair0_device *device, openair0_timestamp *ptimest
             }
           } else {
             // SIMD (with simde) optimization might be added here later
-            double H_awgn_mimo[4][4] = {{1.0, 0.2, 0.1, 0.05}, // rx 0
-                                        {0.2, 1.0, 0.2, 0.1}, // rx 1
-                                        {0.1, 0.2, 1.0, 0.2}, // rx 2
-                                        {0.05, 0.1, 0.2, 1.0}}; // rx 3
-
-            LOG_D(HW, "nbAnt_tx %d\n", nbAnt_tx);
+            LOG_D(HW, "nbAnt_tx %d nbAnt %d\n", nbAnt_tx, nbAnt);
             for (int i = 0; i < nsamps; i++) { // loop over nsamps
               for (int a_tx = 0; a_tx < nbAnt_tx; a_tx++) { // sum up signals from nbAnt_tx antennas
-                out[i].r += (short)(ptr->circularBuf[((firstIndex + i) * nbAnt_tx + a_tx) % CirSize].r * H_awgn_mimo[a][a_tx]);
-                out[i].i += (short)(ptr->circularBuf[((firstIndex + i) * nbAnt_tx + a_tx) % CirSize].i * H_awgn_mimo[a][a_tx]);
+                uint32_t ant_diff = abs(a_tx - a);
+                double H_awgn_mimo_coeff = ant_diff ? (0.2 / ant_diff) : 1.0;
+                out[i].r += (short)(ptr->circularBuf[((firstIndex + i) * nbAnt_tx + a_tx) % CirSize].r * H_awgn_mimo_coeff);
+                out[i].i += (short)(ptr->circularBuf[((firstIndex + i) * nbAnt_tx + a_tx) % CirSize].i * H_awgn_mimo_coeff);
               } // end for a_tx
             } // end for i (number of samps)
           } // end of 1 tx antenna optimization
