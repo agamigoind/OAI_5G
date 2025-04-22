@@ -52,7 +52,7 @@ drb_t *get_drb(gNB_RRC_UE_t *ue, uint8_t drb_id);
 /// @return returns a pointer to the generated DRB structure
 drb_t *generateDRB(gNB_RRC_UE_t *ue,
                    uint8_t drb_id,
-                   const rrc_pdu_session_param_t *pduSession,
+                   const pdusession_t *pduSession,
                    bool enable_sdap,
                    int do_drb_integrity,
                    int do_drb_ciphering);
@@ -66,9 +66,11 @@ int get_number_active_drbs(gNB_RRC_UE_t *ue);
 /// @brief check if DRB with ID drb_id of UE ue is active
 bool drb_is_active(gNB_RRC_UE_t *ue, uint8_t drb_id);
 
-/// @brief retrieve PDU session of UE ue with ID id, optionally creating it if
-/// create is true
-rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id, bool create);
+/// @brief retrieve PDU session of UE ue with ID id
+rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id);
+
+/// @brief Add a new PDU session for UE @param ue and configuration @param in
+pdusession_t *add_pduSession(gNB_RRC_UE_t *ue, const pdusession_t *in);
 
 /// @brief get PDU session of UE ue through the DRB drb_id
 rrc_pdu_session_param_t *find_pduSession_from_drbId(gNB_RRC_UE_t *ue, int drb_id);

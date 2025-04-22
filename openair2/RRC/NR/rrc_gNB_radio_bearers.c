@@ -31,19 +31,39 @@
 #include "ngap_messages_types.h"
 #include "oai_asn1.h"
 
-rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id, bool create)
+/** @brief Retrieves PDU Session for the input ID
+ *  @return pointer to the found PDU Session, NULL if not found */
+rrc_pdu_session_param_t *find_pduSession(gNB_RRC_UE_t *ue, int id)
 {
-  int j;
-  for (j = 0; j < ue->nb_of_pdusessions; j++)
+  for (int j = 0; j < ue->nb_of_pdusessions; j++) {
     if (id == ue->pduSession[j].param.pdusession_id)
-      break;
-  if (j == ue->nb_of_pdusessions) {
-    if (create)
-      ue->nb_of_pdusessions++;
-    else
-      return NULL;
+      return &ue->pduSession[j];
   }
-  return ue->pduSession + j;
+  return NULL;
+}
+
+/** @brief Adds a new PDU Session to the list
+ *  @return pointer to the new PDU Session */
+pdusession_t *add_pduSession(gNB_RRC_UE_t *ue, const pdusession_t *in)
+{
+  if (ue->nb_of_pdusessions >= NGAP_MAX_PDU_SESSION) {
+    LOG_E(NR_RRC, "Maximum number of PDU sessions reached for UE %d\n", ue->rrc_ue_id);
+    return NULL;
+  }
+
+  rrc_pdu_session_param_t *rrc_pdu_session = &ue->pduSession[ue->nb_of_pdusessions];
+  memset(rrc_pdu_session, 0, sizeof(*rrc_pdu_session));
+
+  pdusession_t *session = &rrc_pdu_session->param;
+  session->pdusession_id = in->pdusession_id;
+  session->pdu_session_type = in->pdu_session_type;
+  session->nas_pdu = in->nas_pdu;
+  session->pdusessionTransfer = in->pdusessionTransfer;
+  session->nssai = in->nssai;
+
+  ue->nb_of_pdusessions++;
+  LOG_I(NR_RRC, "Added PDU Session %d, total number of PDU Sessions = %d\n", session->pdusession_id, ue->nb_of_pdusessions);
+  return session;
 }
 
 rrc_pdu_session_param_t *find_pduSession_from_drbId(gNB_RRC_UE_t *ue, int drb_id)
@@ -54,7 +74,7 @@ rrc_pdu_session_param_t *find_pduSession_from_drbId(gNB_RRC_UE_t *ue, int drb_id
     return NULL;
   }
   int id = drb->cnAssociation.sdap_config.pdusession_id;
-  return find_pduSession(ue, id, false);
+  return find_pduSession(ue, id);
 }
 
 void get_pduSession_array(gNB_RRC_UE_t *ue, uint32_t pdu_sessions[NGAP_MAX_PDU_SESSION])
@@ -96,14 +116,14 @@ void set_bearer_context_pdcp_config(bearer_context_pdcp_config_t *pdcp_config, d
 
 drb_t *generateDRB(gNB_RRC_UE_t *ue,
                    uint8_t drb_id,
-                   const rrc_pdu_session_param_t *pduSession,
+                   const pdusession_t *pduSession,
                    bool enable_sdap,
                    int do_drb_integrity,
                    int do_drb_ciphering)
 {
   DevAssert(ue != NULL);
 
-  LOG_I(NR_RRC, "UE %d: configure DRB ID %d for PDU session ID %d\n", ue->rrc_ue_id, drb_id, pduSession->param.pdusession_id);
+  LOG_I(NR_RRC, "UE %d: configure DRB ID %d for PDU session ID %d\n", ue->rrc_ue_id, drb_id, pduSession->pdusession_id);
 
   drb_t *est_drb = &ue->established_drbs[drb_id - 1];
   DevAssert(est_drb->status == DRB_INACTIVE);
@@ -114,7 +134,7 @@ drb_t *generateDRB(gNB_RRC_UE_t *ue,
 
   /* SDAP Configuration */
   est_drb->cnAssociation.present = NR_DRB_ToAddMod__cnAssociation_PR_sdap_Config;
-  est_drb->cnAssociation.sdap_config.pdusession_id = pduSession->param.pdusession_id;
+  est_drb->cnAssociation.sdap_config.pdusession_id = pduSession->pdusession_id;
   if (enable_sdap) {
     est_drb->cnAssociation.sdap_config.sdap_HeaderDL = NR_SDAP_Config__sdap_HeaderDL_present;
     est_drb->cnAssociation.sdap_config.sdap_HeaderUL = NR_SDAP_Config__sdap_HeaderUL_present;
@@ -122,9 +142,9 @@ drb_t *generateDRB(gNB_RRC_UE_t *ue,
     est_drb->cnAssociation.sdap_config.sdap_HeaderDL = NR_SDAP_Config__sdap_HeaderDL_absent;
     est_drb->cnAssociation.sdap_config.sdap_HeaderUL = NR_SDAP_Config__sdap_HeaderUL_absent;
   }
-  for (int qos_flow_index = 0; qos_flow_index < pduSession->param.nb_qos; qos_flow_index++) {
-    est_drb->cnAssociation.sdap_config.mappedQoS_FlowsToAdd[qos_flow_index] = pduSession->param.qos[qos_flow_index].qfi;
-    if (pduSession->param.qos[qos_flow_index].fiveQI > 5)
+  for (int qos_flow_index = 0; qos_flow_index < pduSession->nb_qos; qos_flow_index++) {
+    est_drb->cnAssociation.sdap_config.mappedQoS_FlowsToAdd[qos_flow_index] = pduSession->qos[qos_flow_index].qfi;
+    if (pduSession->qos[qos_flow_index].fiveQI > 5)
       est_drb->status = DRB_ACTIVE_NONGBR;
     else
       est_drb->status = DRB_ACTIVE;
