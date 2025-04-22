@@ -56,9 +56,10 @@ int beam_index_allocation(bool das,
   if (!common_vars->beam_id)
     return 0;
 
-  int ru_beam_idx =  cfg->analog_beamforming_ve.analog_beam_list[fapi_beam_index].value;
   if (das)
-    return ru_beam_idx;
+    return fapi_beam_index;
+
+  int ru_beam_idx =  cfg->analog_beamforming_ve.analog_beam_list[fapi_beam_index].value;
   int idx = -1;
   for (int j = 0; j < common_vars->num_beams_period; j++) {
     // L2 analog beam implementation is slot based, so we need to verify occupancy for the whole slot
