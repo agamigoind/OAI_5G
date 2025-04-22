@@ -84,4 +84,7 @@ void set_bearer_context_pdcp_config(bearer_context_pdcp_config_t *pdcp_config, d
 /// @brief Deep copy an instance of struct pdusession_t
 void cp_pdusession(pdusession_t *dst, const pdusession_t *src);
 
+/// @brief ...
+int remove_pduSession(int module_id, gNB_RRC_UE_t *ue);
+
 #endif

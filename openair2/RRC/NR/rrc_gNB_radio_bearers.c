@@ -30,6 +30,7 @@
 #include "common/utils/T/T.h"
 #include "ngap_messages_types.h"
 #include "oai_asn1.h"
+#include "openair3/ocp-gtpu/gtp_itf.h"
 
 /** @brief Deep copy an instance of struct pdusession_t */
 void cp_pdusession(pdusession_t *dst, const pdusession_t *src)
@@ -92,6 +93,26 @@ rrc_pdu_session_param_t *find_pduSession_from_drbId(gNB_RRC_UE_t *ue, int drb_id
   }
   int id = drb->cnAssociation.sdap_config.pdusession_id;
   return find_pduSession(ue, id);
+}
+
+int remove_pduSession(int module_id, gNB_RRC_UE_t *ue)
+{
+  LOG_I(NR_RRC, "Delete all GTP tunnels for UE %04x\n", ue->rnti);
+
+  // GTP tunnel cleanup
+  gtpv1u_gnb_delete_tunnel_req_t req = {0};
+  req.ue_id = ue->rnti;
+  int num_pdu_sessions_to_remove = 0;
+  for (int i = 0; i < ue->nb_of_pdusessions; i++) {
+    if (ue->pduSession[i].status == PDU_SESSION_STATUS_TORELEASE) {
+      req.pdusession_id[i] = ue->pduSession[i].param.pdusession_id;
+      num_pdu_sessions_to_remove++;
+    }
+  }
+  req.num_pdusession = num_pdu_sessions_to_remove;
+  gtpv1u_delete_ngu_tunnel(module_id, &req);
+
+  return 0;
 }
 
 void get_pduSession_array(gNB_RRC_UE_t *ue, uint32_t pdu_sessions[NGAP_MAX_PDU_SESSION])
