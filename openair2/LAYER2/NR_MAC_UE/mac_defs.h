@@ -527,7 +527,7 @@ typedef struct ntn_timing_advance_components {
   // N_common_ta_adj represents common round-trip-time between gNB and SAT received in SIB19 (ms)
   double N_common_ta_adj;
   // drift rate of common ta in µs/s
-  double ntn_ta_commondrift;
+  double N_common_ta_drift;
   // N_UE_TA_adj calculated round-trip-time between UE and SAT (ms)
   double N_UE_TA_adj;
   // drift rate of N_UE_TA in µs/s
@@ -657,7 +657,7 @@ static inline double GET_COMPLETE_TIME_ADVANCE_MS(const ntn_timing_advance_compo
 
 static inline double GET_COMPLETE_TIME_ADVANCE_DRIFT(const ntn_timing_advance_componets_t *ntn_ta)
 {
-  return ntn_ta->ntn_ta_commondrift + ntn_ta->N_UE_TA_drift;
+  return ntn_ta->N_common_ta_drift + ntn_ta->N_UE_TA_drift;
 }
 
 static inline long GET_DURATION_RX_TO_TX(const ntn_timing_advance_componets_t *ntn_ta, int scs)

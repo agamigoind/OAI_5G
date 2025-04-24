@@ -326,7 +326,7 @@ static void configure_ntn_ta(module_id_t module_id,
     ntn_ta->N_common_ta_adj = ntn_Config_r17->ta_Info_r17->ta_Common_r17 * 4.072e-6;
     // ta_CommonDrift_r17 (is in units of 0.2e-3 µs/s)
     if (ntn_Config_r17->ta_Info_r17->ta_CommonDrift_r17)
-      ntn_ta->ntn_ta_commondrift = *ntn_Config_r17->ta_Info_r17->ta_CommonDrift_r17 * 0.2e-3;
+      ntn_ta->N_common_ta_drift = *ntn_Config_r17->ta_Info_r17->ta_CommonDrift_r17 * 0.2e-3;
   }
   ntn_ta->ntn_params_changed = true;
 
@@ -334,7 +334,7 @@ static void configure_ntn_ta(module_id_t module_id,
         "SIB19 Rxd. k_offset:%ld, N_Common_Ta:%f,drift:%f, N_UE_TA:%f,drift:%f\n",
         ntn_ta->cell_specific_k_offset,
         ntn_ta->N_common_ta_adj,
-        ntn_ta->ntn_ta_commondrift,
+        ntn_ta->N_common_ta_drift,
         ntn_ta->N_UE_TA_adj,
         ntn_ta->N_UE_TA_drift);
 }
