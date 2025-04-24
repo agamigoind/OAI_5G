@@ -2832,10 +2832,6 @@ static void schedule_ntn_config_command(fapi_nr_dl_config_request_t *dl_config, 
 
   ntn_config_command_pdu->epoch_sfn = mac->ntn_ta.epoch_sfn;
   ntn_config_command_pdu->epoch_subframe = mac->ntn_ta.epoch_subframe;
-  ntn_config_command_pdu->N_common_ta_adj = mac->ntn_ta.N_common_ta_adj;
-  ntn_config_command_pdu->ntn_ta_commondrift = mac->ntn_ta.ntn_ta_commondrift;
-  ntn_config_command_pdu->N_UE_TA_adj = mac->ntn_ta.N_UE_TA_adj;
-  ntn_config_command_pdu->N_UE_TA_drift = mac->ntn_ta.N_UE_TA_drift;
   ntn_config_command_pdu->cell_specific_k_offset = mac->ntn_ta.cell_specific_k_offset;
   ntn_config_command_pdu->ntn_total_time_advance_ms = GET_COMPLETE_TIME_ADVANCE_MS(&mac->ntn_ta);
   ntn_config_command_pdu->ntn_total_time_advance_drift = GET_COMPLETE_TIME_ADVANCE_DRIFT(&mac->ntn_ta);
