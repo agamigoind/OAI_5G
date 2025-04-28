@@ -1359,6 +1359,8 @@ void ue_ulsch_uespec_procedures(PHY_VARS_UE *ue,
         frame_tx,subframe_tx,harq_pid,
         ue->ulsch[eNB_id]->harq_processes[harq_pid]->subframe_scheduling_flag);
 
+  LOG_I(PHY,"%d %d, %d %d %d %d %d %d\n",eNB_id, ue->mac_enabled,ue->ulsch_Msg3_active[eNB_id],ue->ulsch_Msg3_frame[eNB_id],frame_tx,ue->ulsch_Msg3_subframe[eNB_id] ,subframe_tx,ue->ulsch[eNB_id]->harq_processes[harq_pid]->round);
+
   if (ue->mac_enabled == 1) {
     if ((ue->ulsch_Msg3_active[eNB_id] == 1) && (ue->ulsch_Msg3_frame[eNB_id] == frame_tx)
         && (ue->ulsch_Msg3_subframe[eNB_id] == (subframe_tx % 1024))) { // Initial Transmission of Msg3
