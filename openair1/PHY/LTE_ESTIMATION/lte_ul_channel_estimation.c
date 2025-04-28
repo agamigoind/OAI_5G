@@ -151,12 +151,8 @@ int32_t lte_ul_channel_estimation(LTE_DL_FRAME_PARMS *frame_parms,
 #endif
 
         for(i=symbol_offset; i<symbol_offset+Msc_RS; i++) {
-          c16_t alpha = (c16_t){alphaTBL_re[alpha_ind], alphaTBL_im[alpha_ind]};
-          ul_ch_estimates[aa][i] = c16MulConjShift(alpha, ul_ch_estimates[aa][i], 15);
-          alpha_ind+=cyclic_shift;
-
-          if (alpha_ind>11)
-            alpha_ind-=12;
+          ul_ch_estimates[aa][i] = c16MulConjShift( alphaTBL[alpha_ind], ul_ch_estimates[aa][i], 15);
+          alpha_ind=(alpha_ind+cyclic_shift)%12;
         }
 
 #ifdef DEBUG_CH
@@ -361,12 +357,8 @@ int32_t lte_ul_channel_estimation_RRU(LTE_DL_FRAME_PARMS *frame_parms,
 #endif
 
       for(i=symbol_offset; i<symbol_offset+Msc_RS; i++) {
-        c16_t alpha = (c16_t){alphaTBL_re[alpha_ind], alphaTBL_im[alpha_ind]};
-        ul_ch_estimates[aa][i] = c16MulConjShift(alpha, ul_ch_estimates[aa][i], 15);
-        alpha_ind+=cyclic_shift;
-
-        if (alpha_ind>11)
-          alpha_ind-=12;
+        ul_ch_estimates[aa][i] = c16MulConjShift(alphaTBL[alpha_ind], ul_ch_estimates[aa][i], 15);
+        alpha_ind=(alpha_ind+cyclic_shift)%12;
       }
 
 #ifdef DEBUG_CH
