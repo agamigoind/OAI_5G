@@ -2,8 +2,8 @@
  * Copyright(c) 2017 Intel Corporation
  */
 
-#ifndef __NRLDPC_CODING_T2_H__
-#define __NRLDPC_CODING_T2_H__
+#ifndef __NRLDPC_CODING_AAL_H__
+#define __NRLDPC_CODING_AAL_H__
 
 #include <stddef.h>
 #include <sys/queue.h>
@@ -11,6 +11,7 @@
 #include <rte_common.h>
 #include <rte_hexdump.h>
 #include <rte_log.h>
+#include <rte_bbdev_op.h>
 
 #define MAX_BURST 512U
 
