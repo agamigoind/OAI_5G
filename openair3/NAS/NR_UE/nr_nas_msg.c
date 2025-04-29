@@ -132,9 +132,6 @@ static security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_b
 {
   if (nas->security_container == NULL)
     return NAS_SECURITY_NO_SECURITY_CONTEXT;
-  /* header is 7 bytes, require at least one byte of payload */
-  if (pdu_length < 8)
-    return NAS_SECURITY_BAD_INPUT;
 
   switch (pdu_buffer[1]) {
     case PLAIN_5GS_MSG:
@@ -151,6 +148,12 @@ static security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_b
       break;
     default:
       break;
+  }
+
+  /* header is 7 bytes, require at least one byte of payload */
+  if (pdu_length < 8) {
+    LOG_E(NAS, "Invalid buffer length = %d\n", pdu_length);
+    return NAS_SECURITY_BAD_INPUT;
   }
 
   /* synchronize NAS SQN, based on 24.501 4.4.3.1 */
