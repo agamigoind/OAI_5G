@@ -747,9 +747,7 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
 
     if (j == MAX_DRBS_PER_UE) {
       ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CauseRadioNetwork_unspecified};
-      ue_p->pduSession[i].xid = xid;
-      ue_p->pduSession[i].status = PDU_SESSION_STATUS_FAILED;
-      ue_p->pduSession[i].cause = cause;
+      rrc_mark_pdu_session_as_failed(&ue_p->pduSession[i], cause, xid);
       continue;
     }
 
@@ -771,9 +769,7 @@ void rrc_gNB_modify_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t 
         default:
           LOG_E(NR_RRC, "not supported 5qi %lu\n", ue_p->pduSession[i].param.qos[qos_flow_index].fiveQI);
           ngap_cause_t cause = {.type = NGAP_CAUSE_RADIO_NETWORK, .value = NGAP_CauseRadioNetwork_not_supported_5QI_value};
-          ue_p->pduSession[i].status = PDU_SESSION_STATUS_FAILED;
-          ue_p->pduSession[i].xid = xid;
-          ue_p->pduSession[i].cause = cause;
+          rrc_mark_pdu_session_as_failed(&ue_p->pduSession[i], cause, xid);
           continue;
       }
         LOG_I(NR_RRC,
@@ -1807,9 +1803,7 @@ static void handle_rrcReconfigurationComplete(gNB_RRC_INST *rrc, gNB_RRC_UE_t *U
 
   switch (UE->xids[xid]) {
     case RRC_PDUSESSION_RELEASE: {
-      gtpv1u_gnb_delete_tunnel_req_t req = {0};
-      gtpv1u_delete_ngu_tunnel(rrc->module_id, &req);
-      // NGAP_PDUSESSION_RELEASE_RESPONSE
+      remove_pduSession(rrc->module_id, UE);
       rrc_gNB_send_NGAP_PDUSESSION_RELEASE_RESPONSE(rrc, UE, xid);
     } break;
     case RRC_PDUSESSION_ESTABLISH:
@@ -2467,7 +2461,7 @@ static int fill_drb_to_be_setup_from_e1_resp(const gNB_RRC_INST *rrc,
 {
   int nb_drb = 0;
   for (int p = 0; p < numPduSession; ++p) {
-    rrc_pdu_session_param_t *RRC_pduSession = find_pduSession(UE, pduSession[p].id, false);
+    rrc_pdu_session_param_t *RRC_pduSession = find_pduSession(UE, pduSession[p].id);
     DevAssert(RRC_pduSession);
     for (int i = 0; i < pduSession[p].numDRBSetup; i++) {
       const DRB_nGRAN_setup_t *drb_config = &pduSession[p].DRBnGRanList[i];
@@ -2522,7 +2516,7 @@ void rrc_gNB_process_e1_bearer_context_setup_resp(e1ap_bearer_setup_resp_t *resp
   // save the tunnel address for the PDU sessions
   for (int i = 0; i < resp->numPDUSessions; i++) {
     pdu_session_setup_t *e1_pdu = &resp->pduSession[i];
-    rrc_pdu_session_param_t *rrc_pdu = find_pduSession(UE, e1_pdu->id, false);
+    rrc_pdu_session_param_t *rrc_pdu = find_pduSession(UE, e1_pdu->id);
     if (rrc_pdu == NULL) {
       LOG_W(RRC, "E1: received setup for PDU session %ld, but has not been requested\n", e1_pdu->id);
       continue;
