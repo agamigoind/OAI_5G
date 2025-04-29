@@ -601,12 +601,12 @@ static NR_ReportConfigToAddMod_t *prepare_a3_event_report(const nr_a3_event_t *a
   return rc_A3;
 }
 
-static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
-                                                      gNB_RRC_UE_t *UE,
-                                                      uint8_t xid,
-                                                      bool reestablish)
+/** @brief Prepare the instance of RRCReconfigurationParams to be pass to RRC encoding */
+static nr_rrc_reconfig_param_t get_RRCReconfiguration_params(gNB_RRC_INST *rrc,
+                                                             gNB_RRC_UE_t *UE,
+                                                             uint8_t srb_reest_bitmap,
+                                                             bool drb_reestablish)
 {
-  NR_CellGroupConfig_t *cellGroupConfig = UE->masterCellGroup;
   nr_rrc_du_container_t *du = get_du_for_ue(rrc, UE->rrc_ue_id);
   DevAssert(du != NULL);
   f1ap_served_cell_info_t *cell_info = &du->setup_req->cell[0].info;
@@ -665,19 +665,16 @@ static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
   UE->measConfig = measconfig;
 
   // Re-establish PDCP for SRB2 only
-  NR_SRB_ToAddModList_t *SRBs = createSRBlist(UE, reestablish ? (1 << SRB2) : 0);
-  NR_DRB_ToAddModList_t *DRBs = createDRBlist(UE, reestablish);
-
-  nr_rrc_reconfig_param_t params = {.cell_group_config = cellGroupConfig,
+  NR_SRB_ToAddModList_t *SRBs = createSRBlist(UE, srb_reest_bitmap);
+  NR_DRB_ToAddModList_t *DRBs = createDRBlist(UE, drb_reestablish);
+  nr_rrc_reconfig_param_t params = {.cell_group_config = UE->masterCellGroup,
                                     .num_nas_msg = 0,
+                                    .srb_config_list = SRBs,
                                     .drb_config_list = DRBs,
                                     .drb_release_list = UE->DRB_ReleaseList,
                                     .masterKeyUpdate = false,
                                     .nextHopChainingCount = UE->nh_ncc,
-                                    .meas_config = measconfig,
-                                    .srb_config_list = SRBs,
-                                    .transaction_id = xid};
-
+                                    .meas_config = measconfig};
   for (int i = 0; i < UE->nb_of_pdusessions; i++) {
     if (UE->pduSession[i].param.nas_pdu.buffer != NULL) {
       params.num_nas_msg++;
@@ -689,6 +686,11 @@ static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
     params.dedicated_NAS_msg_list[params.num_nas_msg++] = UE->nas_pdu;
   }
 
+  return params;
+}
+
+static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc, gNB_RRC_UE_t *UE, nr_rrc_reconfig_param_t params)
+{
   byte_array_t msg = do_RRCReconfiguration(&params);
   if (msg.len == 0) {
     LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", UE->rrc_ue_id);
@@ -696,8 +698,8 @@ static byte_array_t rrc_gNB_encode_RRCReconfiguration(gNB_RRC_INST *rrc,
   }
 
   LOG_DUMPMSG(NR_RRC, DEBUG_RRC, msg.buf, msg.len, "[MSG] RRC Reconfiguration\n");
-  freeSRBlist(SRBs);
-  freeDRBlist(DRBs);
+  freeSRBlist(params.srb_config_list);
+  freeDRBlist(params.drb_config_list);
   ASN_STRUCT_FREE(asn_DEF_NR_DRB_ToReleaseList, UE->DRB_ReleaseList);
   UE->DRB_ReleaseList = NULL;
 
@@ -718,7 +720,10 @@ static void rrc_gNB_generate_dedicatedRRCReconfiguration(gNB_RRC_INST *rrc, gNB_
     }
   }
 
-  byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, ue_p, xid, false);
+  /* do not re-establish PDCP for any bearer */
+  nr_rrc_reconfig_param_t params = get_RRCReconfiguration_params(rrc, ue_p, 0, false);
+  params.transaction_id = xid;
+  byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, ue_p, params);
   if (msg.len == 0) {
     LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", ue_p->rrc_ue_id);
     return;
@@ -2201,7 +2206,14 @@ static void rrc_CU_process_ue_context_setup_response(MessageDef *msg_p, instance
 
     uint8_t xid = rrc_gNB_get_next_transaction_identifier(rrc->module_id);
     UE->xids[xid] = RRC_DEDICATED_RECONF;
-    byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, UE, xid, true);
+    /* 3GPP TS 38.331 specifies that PDCP shall be re-established whenever the security key
+     * used for the radio bearer changes, with some expections for SRB1 (i.e. when resuming
+     * an RRC connection, or at the first reconfiguration after RRC connection reestablishment
+     * in NR, do not re-establish PDCP */
+    nr_rrc_reconfig_param_t params = get_RRCReconfiguration_params(rrc, UE, (1 << SRB2), true);
+    params.transaction_id = xid;
+
+    byte_array_t msg = rrc_gNB_encode_RRCReconfiguration(rrc, UE, params);
     if (msg.len == 0) {
       LOG_E(NR_RRC, "UE %d: Failed to generate RRCReconfiguration\n", UE->rrc_ue_id);
       return;
