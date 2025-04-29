@@ -68,6 +68,7 @@
 #include "fgs_nas_utils.h"
 #include "fgmm_service_accept.h"
 #include "fgmm_service_reject.h"
+#include "fgmm_authentication_reject.h"
 
 #define MAX_NAS_UE 4
 
@@ -837,6 +838,29 @@ static void generateAuthenticationResp(nr_ue_nas_t *nas, as_nas_info_t *initialN
   initialNasMsg->length = mm_msg_encode(&plain, initialNasMsg->nas_data, size);
   // Free res value after encode
   free(res.value);
+}
+
+static void handle_authentication_reject(nr_ue_nas_t *nas, as_nas_info_t *initialNasMsg, uint8_t *pdu, int pdu_length)
+{
+  LOG_E(NAS, "Received Authentication Reject message from the network\n");
+  fgmm_auth_reject_msg_t msg = {0};
+  uint8_t eap_msg[1500] = {0};
+  msg.eap_msg.buf = eap_msg;
+
+  byte_array_t ba = {.buf = pdu + 3 /* skip header */, .len = pdu_length};
+  if (decode_fgmm_auth_reject(&msg, &ba) < 0) {
+    LOG_E(NAS, "Could not decode Authentication Reject\n");
+    return;
+  }
+
+  if (msg.eap_msg.len > 0) {
+    LOG_I(NAS, "NAS Authentication Reject contains an EAP message:\n");
+    for (int i = 0; i < msg.eap_msg.len; i++) {
+      printf("eap_msg[%d] = %d", i, msg.eap_msg.buf[i]);
+    }
+    printf("\n");
+    fflush(stdout);
+  }
 }
 
 int nas_itti_kgnb_refresh_req(instance_t instance, const uint8_t kgnb[32])
@@ -1722,6 +1746,9 @@ void *nas_nrue(void *args_p)
             break;
           case FGS_AUTHENTICATION_REQUEST:
             generateAuthenticationResp(nas, &initialNasMsg, pdu_buffer);
+            break;
+          case FGS_AUTHENTICATION_REJECT:
+            handle_authentication_reject(nas, &initialNasMsg, pdu_buffer, pdu_length);
             break;
           case FGS_SECURITY_MODE_COMMAND:
             handle_security_mode_command(nas, &initialNasMsg, pdu_buffer, pdu_length);
