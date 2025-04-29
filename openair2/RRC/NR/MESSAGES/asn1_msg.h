@@ -53,7 +53,8 @@
 #include "ds/seq_arr.h"
 #include "ds/byte_array.h"
 #include "rrc_messages_types.h"
-struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList;
+#include "openair2/COMMON/ngap_messages_types.h"
+
 struct asn_TYPE_descriptor_s;
 
 typedef struct {
@@ -63,7 +64,8 @@ typedef struct {
   NR_DRB_ToReleaseList_t *drb_release_list;
   NR_SecurityConfig_t *security_config;
   NR_MeasConfig_t *meas_config;
-  struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList *dedicated_nas_message_list;
+  ngap_pdu_t dedicated_NAS_msg_list[MAX_DRBS_PER_UE];
+  int num_nas_msg;
   NR_CellGroupConfig_t *cell_group_config;
   bool masterKeyUpdate;
   int nextHopChainingCount;

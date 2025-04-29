@@ -667,7 +667,7 @@ static NR_RRCReconfiguration_IEs_t *build_RRCReconfiguration_IEs(const nr_rrc_re
   ie->lateNonCriticalExtension = NULL;
 
   /* nonCriticalExtension, RRCReconfiguration-v1530-IEs */
-  if (params->cell_group_config || params->dedicated_nas_message_list) {
+  if (params->cell_group_config || params->num_nas_msg) {
     // Allocate memory for extension IE
     ie->nonCriticalExtension = calloc_or_fail(1, sizeof(*ie->nonCriticalExtension));
   }
@@ -676,8 +676,17 @@ static NR_RRCReconfiguration_IEs_t *build_RRCReconfiguration_IEs(const nr_rrc_re
   if (ie->nonCriticalExtension) {
     /* dedicatedNAS-MessageList: The field is absent in case of reconfiguration with sync
        otherwise it is optionally present */
-    if (params->dedicated_nas_message_list) {
-      ie->nonCriticalExtension->dedicatedNAS_MessageList = params->dedicated_nas_message_list;
+    asn1cCalloc(ie->nonCriticalExtension->dedicatedNAS_MessageList, list);
+    for (int i = 0; i < params->num_nas_msg; i++) {
+      if (params->dedicated_NAS_msg_list[i].buffer != NULL) {
+        asn1cSequenceAdd(list->list, NR_DedicatedNAS_Message_t, ie);
+        OCTET_STRING_fromBuf(ie, (char *)params->dedicated_NAS_msg_list[i].buffer, params->dedicated_NAS_msg_list[i].length);
+      }
+    }
+    /* If list is empty free the list and reset the address */
+    if (list->list.count == 0) {
+      free(list);
+      list = NULL;
     }
 
     /* fullConfig:
