@@ -87,12 +87,15 @@ void nrLDPC_cnProc_BG1_generator_128(const char* dir, int R)
   // 1. bit proc requires LLRs of 2. and 3. bit, 2.bits of 1. and 3. etc.
   // Offsets are in units of bitOffsetInGroup (1*384/32)
   const uint8_t lut_idxCnProcG3[3][2] = {{12,24}, {0,24}, {0,12}};
-#ifndef DROP_MAXLLR
+#if !defined(DROP_MAXLLR) && !defined(AVOID_SIGN)
   fprintf(fd,"                simde__m128i ymm0, min, sgn,ones,maxLLR;\n");
-#else
-  fprintf(fd,"                simde__m128i ymm0, min, sgn,ones;\n");
-#endif  
   fprintf(fd,"                ones   = simde_mm_set1_epi8((int8_t)1);\n");
+#elif defined(DROP_MAXLLR) && !defined(AVOID_SIGN)
+  fprintf(fd,"                simde__m128i ymm0, min, sgn,ones;\n");
+  fprintf(fd,"                ones   = simde_mm_set1_epi8((int8_t)1);\n");
+#elif defined(DROP_MAXLLR) && defined(AVOID_SIGN)
+  fprintf(fd,"                simde__m128i ymm0, min, sgn;\n");
+#endif  
 
   fprintf(fd,"                uint32_t  M;\n");
 
