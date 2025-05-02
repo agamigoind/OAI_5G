@@ -7,14 +7,12 @@ macro(add_physim_test test_gen test_exec test_description test_label)
     NAME ${test_name}
     COMMAND ${test_exec} ${options_list}
     COMMAND_EXPAND_LISTS
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-   )
-   set_tests_properties(${test_name} PROPERTIES
-     LABELS "${test_exec}: ${test_label};${test_exec}"
-     ENVIRONMENT "LD_LIBRARY_PATH=."
-   )
-
-   add_dependencies(tests ${test_exec} coding)
+  )
+  set_tests_properties(${test_name} PROPERTIES
+    LABELS "${test_exec}: ${test_label};${test_exec}"
+    ENVIRONMENT "LD_LIBRARY_PATH=."
+  )
+  add_dependencies(tests ${test_exec} coding)
 endmacro()
 
 ####################################################################################
