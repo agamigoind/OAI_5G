@@ -561,8 +561,8 @@ static int retrieve_ldpc_dec_op(struct rte_bbdev_dec_op **ops, nrLDPC_slot_decod
       hard_output = &ops[j]->ldpc_dec.hard_output;
       m = hard_output->data;
       data_len = rte_pktmbuf_data_len(m) - hard_output->offset;
-      data = m->buf_addr;
-      memcpy(nrLDPC_slot_decoding_parameters->TBs[h].segments[i].c, data + m->data_off, data_len);
+      data = rte_pktmbuf_mtod_offset(m, char *, hard_output->offset);
+      memcpy(nrLDPC_slot_decoding_parameters->TBs[h].segments[i].c, data, data_len);
       ++j;
     }
   }
@@ -580,7 +580,7 @@ retrieve_ldpc_enc_op(struct rte_bbdev_enc_op **ops,
       struct rte_mbuf *m = output->data;
       uint16_t data_len = rte_pktmbuf_data_len(m) - output->offset;
       uint8_t *out = nrLDPC_slot_encoding_parameters->TBs[h].segments[i].output;
-      const char *data = m->buf_addr + m->data_off;
+      const char *data = rte_pktmbuf_mtod_offset(m, char *, output->offset);
       const char *end = data + data_len;
       while (data < end) {
         uint8_t byte = *data++; // get the current byte
