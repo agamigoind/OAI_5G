@@ -131,15 +131,22 @@ static const char *print_info(uint8_t id, const text_info_t *array, uint8_t arra
 
 static security_state_t nas_security_rx_process(nr_ue_nas_t *nas, uint8_t *pdu_buffer, int pdu_length)
 {
+  int security_type = pdu_buffer[1];
+  LOG_D(NAS, "Security type is: %s\n", print_info(security_type, security_header_type_s, sizeofArray(security_header_type_s)));
+
   if (nas->security_container == NULL)
     return NAS_SECURITY_NO_SECURITY_CONTEXT;
 
-  switch (pdu_buffer[1]) {
+  switch (security_type) {
     case PLAIN_5GS_MSG:
       return NAS_SECURITY_UNPROTECTED;
       break;
-    case INTEGRITY_PROTECTED:
     case INTEGRITY_PROTECTED_WITH_NEW_SECU_CTX:
+      stream_security_container_delete(nas->security_container);
+      nas->security.nas_count_dl = 0;
+      return NAS_SECURITY_NO_SECURITY_CONTEXT;
+      break;
+    case INTEGRITY_PROTECTED:
     case INTEGRITY_PROTECTED_AND_CIPHERED_WITH_NEW_SECU_CTX:
       /* only accept "integrity protected and ciphered" messages */
       if (pdu_buffer[6] == 0)
