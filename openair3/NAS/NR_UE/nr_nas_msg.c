@@ -76,10 +76,10 @@ static nr_ue_nas_t nr_ue_nas[MAX_NAS_UE] = {0};
 
 #define FOREACH_STATE(TYPE_DEF)                  \
   TYPE_DEF(NAS_SECURITY_NO_SECURITY_CONTEXT, 0)  \
-  TYPE_DEF(NAS_SECURITY_NEW_SECURITY_CONTEXT, 1) \
-  TYPE_DEF(NAS_SECURITY_UNPROTECTED, 2)          \
-  TYPE_DEF(NAS_SECURITY_INTEGRITY_FAILED, 3)     \
-  TYPE_DEF(NAS_SECURITY_INTEGRITY_PASSED, 4)     \
+  TYPE_DEF(NAS_SECURITY_UNPROTECTED, 1)          \
+  TYPE_DEF(NAS_SECURITY_INTEGRITY_PASSED, 2)     \
+  TYPE_DEF(NAS_SECURITY_NEW_SECURITY_CONTEXT, 3) \
+  TYPE_DEF(NAS_SECURITY_INTEGRITY_FAILED, 4)     \
   TYPE_DEF(NAS_SECURITY_BAD_INPUT, 5)
 
 const char *nr_release_cause_desc[] = {"RRC_CONNECTION_FAILURE", "RRC_RESUME_FAILURE", "OTHER"};
@@ -1664,7 +1664,7 @@ void *nas_nrue(void *args_p)
         int pdu_length = NAS_CONN_ESTABLI_CNF(msg_p).nasMsg.length;
 
         security_state_t security_state = nas_security_rx_process(nas, pdu_buffer, pdu_length);
-        if (security_state != NAS_SECURITY_INTEGRITY_PASSED && security_state != NAS_SECURITY_NO_SECURITY_CONTEXT) {
+        if (security_state > NAS_SECURITY_INTEGRITY_PASSED) {
           LOG_E(NAS, "NAS integrity failed, discard incoming message: security state is %s\n", security_state_info[security_state].text);
           break;
         }
@@ -1735,14 +1735,7 @@ void *nas_nrue(void *args_p)
         int msg_type = get_msg_type(pdu_buffer, pdu_length);
 
         security_state_t security_state = nas_security_rx_process(nas, pdu_buffer, pdu_length);
-        /* special cases accepted without protection */
-        if (security_state == NAS_SECURITY_UNPROTECTED) {
-          /* for the moment, only FGS_DEREGISTRATION_ACCEPT_UE_ORIGINATING is accepted */
-          if (msg_type == FGS_DEREGISTRATION_ACCEPT_UE_ORIGINATING)
-            security_state = NAS_SECURITY_INTEGRITY_PASSED;
-        }
-
-        if (security_state != NAS_SECURITY_INTEGRITY_PASSED && security_state != NAS_SECURITY_NO_SECURITY_CONTEXT) {
+        if (security_state > NAS_SECURITY_INTEGRITY_PASSED) {
           LOG_E(NAS, "NAS integrity failed, discard incoming message\n");
           break;
         }
