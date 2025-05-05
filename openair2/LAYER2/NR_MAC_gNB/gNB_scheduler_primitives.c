@@ -3030,6 +3030,39 @@ void nr_csirs_scheduling(int Mod_idP, frame_t frame, slot_t slot, nfapi_nr_dl_tt
   }
 }
 
+void nr_measgap_scheduling(gNB_MAC_INST *nr_mac, frame_t frame, sub_frame_t slot)
+{
+  NR_SCHED_ENSURE_LOCKED(&nr_mac->sched_lock);
+
+  NR_UEs_t *UE_info = &nr_mac->UE_info;
+  UE_iterator (UE_info->list, UE) {
+    measgap_config_t *mgc = &UE->measgap_config;
+    if (!mgc->enable)
+      continue;
+
+    const int slots_frame = nr_mac->frame_structure.numb_slots_frame;
+    const frame_t f = (frame + (slot + mgc->n_slots_advance) / slots_frame) % 1024;
+    const slot_t s = (slot + mgc->n_slots_advance) % slots_frame;
+
+    // TS 38 331 - Section 5.5.2.9 Measurement gap configuration
+    if (!(((f % (mgc->mgrp / 10)) == (mgc->gapOffset / 10)) && (s == mgc->gapOffset % 10)))
+      continue;
+
+    NR_UE_sched_ctrl_t *sched_ctrl = &UE->UE_sched_ctrl;
+    if (nr_timer_is_active(&sched_ctrl->transm_interrupt) == false) {
+      nr_mac_interrupt_ue_transmission(nr_mac, UE, FOLLOW_ACTIVE, mgc->mgl_slots);
+    } else {
+      // If the timer is already running, for example because of a RRCReconfiguration, we cannot change the action, otherwise the
+      // associated procedures will not be executed. So, we determine the additional time needed to reach the end of the measurement
+      // gap, and extend the timer.
+      uint32_t remaining_time = nr_timer_remaining_time(&sched_ctrl->transm_interrupt);
+      if (remaining_time < mgc->mgl_slots) {
+        nr_mac_interrupt_ue_transmission(nr_mac, UE, UE->interrupt_action, mgc->mgl_slots);
+      }
+    }
+  }
+}
+
 static void nr_mac_clean_cellgroup(NR_CellGroupConfig_t *cell_group)
 {
   DevAssert(cell_group != NULL);
@@ -3182,7 +3215,7 @@ void nr_mac_update_timers(module_id_t module_id, frame_t frame, slot_t slot)
       nr_timer_stop(&sched_ctrl->transm_interrupt);
       if (UE->interrupt_action == FOLLOW_OUTOFSYNC)
         nr_mac_trigger_ul_failure(sched_ctrl, UE->current_DL_BWP.scs);
-      else
+      else if (UE->interrupt_action != FOLLOW_ACTIVE)
         nr_mac_apply_cellgroup(mac, UE, frame, slot);
     }
   }

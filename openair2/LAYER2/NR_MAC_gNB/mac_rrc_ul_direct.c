@@ -84,7 +84,7 @@ static void ue_context_setup_response_direct(const f1ap_ue_context_setup_t *req,
       f1ap_msg->drbs_to_be_setup[i] = resp->drbs_to_be_setup[i];
   }
 
-  f1ap_msg->du_to_cu_rrc_information = malloc(sizeof(*resp->du_to_cu_rrc_information));
+  f1ap_msg->du_to_cu_rrc_information = calloc_or_fail(1, sizeof(*resp->du_to_cu_rrc_information));
   AssertFatal(f1ap_msg->du_to_cu_rrc_information != NULL, "out of memory\n");
   f1ap_msg->du_to_cu_rrc_information_length = resp->du_to_cu_rrc_information_length;
   du_to_cu_rrc_information_t *du2cu = f1ap_msg->du_to_cu_rrc_information;
@@ -92,6 +92,11 @@ static void ue_context_setup_response_direct(const f1ap_ue_context_setup_t *req,
   du2cu->cellGroupConfig = calloc(du2cu->cellGroupConfig_length, sizeof(*du2cu->cellGroupConfig));
   AssertFatal(du2cu->cellGroupConfig != NULL, "out of memory\n");
   memcpy(du2cu->cellGroupConfig, resp->du_to_cu_rrc_information->cellGroupConfig, du2cu->cellGroupConfig_length);
+  if (resp->du_to_cu_rrc_information->measGapConfig_length > 0) {
+    du2cu->measGapConfig_length = resp->du_to_cu_rrc_information->measGapConfig_length;
+    du2cu->measGapConfig = calloc_or_fail(du2cu->measGapConfig_length, sizeof(*du2cu->measGapConfig));
+    memcpy(du2cu->measGapConfig, resp->du_to_cu_rrc_information->measGapConfig, du2cu->measGapConfig_length);
+  }
 
   itti_send_msg_to_task(TASK_RRC_GNB, 0, msg);
 }
@@ -169,7 +174,6 @@ static void ue_context_modification_required_direct(const f1ap_ue_context_modif_
     du2cu->cellGroupConfig = malloc(du2cu->cellGroupConfig_length * sizeof(*du2cu->cellGroupConfig));
     AssertFatal(du2cu->cellGroupConfig != NULL, "out of memory\n");
     memcpy(du2cu->cellGroupConfig, required->du_to_cu_rrc_information->cellGroupConfig, du2cu->cellGroupConfig_length);
-    AssertFatal(required->du_to_cu_rrc_information->measGapConfig == NULL && required->du_to_cu_rrc_information->measGapConfig_length == 0, "not handled yet\n");
     AssertFatal(required->du_to_cu_rrc_information->requestedP_MaxFR1 == NULL && required->du_to_cu_rrc_information->requestedP_MaxFR1_length == 0, "not handled yet\n");
   }
   f1ap_msg->cause = required->cause;
