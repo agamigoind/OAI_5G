@@ -32,7 +32,79 @@ These are the simulators known to work properly and tested in CI:
   `nr_pbchsim`, `nr_prachsim`, `nr_pucchsim`, `polartest`, `smallblocktest`,
   `nr_psbchsim` (sidelink)
 
-# How to run
+# How to run with `ctest`
+
+There are two methods for building and running physical simulators using `ctest`.
+
+## Option 1: Using CMake
+
+```bash
+cd openairinterface5g
+mkdir build && cd build
+cmake .. -GNinja -DENABLE_PHYSIM_TESTS=ON
+ninja tests
+ctest
+```
+
+## Option 2: Using the `build_oai` script
+
+This method simplifies the process by automatically building the simulators with ctest support.
+
+```bash
+cd openairinterface5g/cmake_targets
+./build_oai --ninja --phy_simulators
+cd ran_build/build
+ctest
+```
+---
+
+## `ctest` useful options
+
+Use the following options to customize test execution:
+
+| Option               | Description                                                  |
+|----------------------|--------------------------------------------------------------|
+| `-R <regex>`         | Run tests matching the regex pattern (by name)              |
+| `-L <regex>`         | Run tests with labels matching the regex pattern            |
+| `-E <regex>`         | Exclude tests matching the regex pattern (by name)          |
+| `-LE <regex>`        | Exclude tests with labels matching the regex pattern        |
+| `--print-labels`     | Display all available test labels                           |
+| `-j <jobs>`          | Run tests in parallel using specified number of jobs        |
+
+For the complete list of `ctest` options, refer to the manual:
+
+```bash
+man ctest
+```
+
+## Adding a new physim test
+
+To define a new test or modify existing ones, update the following file:
+
+```
+openair1/PHY/CODING/tests/CMakeLists.txt
+```
+
+Use the `add_physim_test` macro with the following arguments:
+
+```cmake
+add_physim_test(<test_gen> <test_exec> <test_description> <test_label> <test_cl_options>)
+```
+
+### Arguments:
+- **`<test_gen>`**: Test generation (e.g., `4g` or `5g`)
+- **`<test_exec>`**: Name of the test executable
+- **`<test_description>`**: Description shown in `ctest` output, useful for categorization and indexing.
+- **`<test_label>`**: Label used for filtering tests (via `-L`), shown in the ctest output summary as a descriptive tag.
+- **`<test_cl_options>`**: Command line options passed to the test
+
+### Example:
+```cmake
+# add_physim_test(<test_gen> <test_exec> <test_description> <test_label> <test_cl_options>)
+add_physim_test(5g nr_prachsim test8 "15kHz SCS, 25 PRBs" -a -s -30 -n 300 -p 99 -R 25 -m 0)
+```
+
+# How to run with autotest bash script
 
 You first have to build simulators:
 
