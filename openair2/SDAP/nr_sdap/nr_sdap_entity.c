@@ -329,7 +329,7 @@ static void nr_sdap_rx_entity(nr_sdap_entity_t *entity,
     LOG_D(SDAP, "RX Entity offset : %d\n", offset);
 
     if (len != size-offset)
-      LOG_E(SDAP, "%s:%d:%s: fatal\n", __FILE__, __LINE__, __FUNCTION__);
+      LOG_E(SDAP, "write failed to fd %d! errno = %s\n", entity->pdusession_sock, strerror(errno));
   }
 }
 
@@ -502,6 +502,7 @@ nr_sdap_entity_t *new_nr_sdap_entity(int is_gnb,
 
   sdap_entity->ue_id = ue_id;
   sdap_entity->pdusession_id = pdusession_id;
+  sdap_entity->is_gnb = is_gnb;
 
   sdap_entity->tx_entity = nr_sdap_tx_entity;
   sdap_entity->rx_entity = nr_sdap_rx_entity;
@@ -587,6 +588,8 @@ bool nr_sdap_delete_entity(ue_id_t ue_id, int pdusession_id)
 
   if (entityPtr->ue_id == ue_id && entityPtr->pdusession_id == pdusession_id) {
     sdap_info.sdap_entity_llist = sdap_info.sdap_entity_llist->next_entity;
+    if (entityPtr->pdusession_sock != -1)
+      remove_ip_if(entityPtr);
     free(entityPtr);
     LOG_D(SDAP, "Successfully deleted Entity.\n");
     ret = true;
@@ -600,8 +603,8 @@ bool nr_sdap_delete_entity(ue_id_t ue_id, int pdusession_id)
 
     if (entityPtr->ue_id == ue_id && entityPtr->pdusession_id == pdusession_id) {
       entityPrev->next_entity = entityPtr->next_entity;
-      if (entityPrev->pdusession_sock != -1) {
-        remove_ue_ip_if(entityPrev);
+      if (entityPtr->pdusession_sock != -1) {
+        remove_ip_if(entityPtr);
       }
       free(entityPtr);
       LOG_D(SDAP, "Successfully deleted Entity.\n");
@@ -627,6 +630,8 @@ bool nr_sdap_delete_ue_entities(ue_id_t ue_id)
   /* Handle scenario where ue_id matches the head of the list */
   while (entityPtr != NULL && entityPtr->ue_id == ue_id && upperBound < MAX_DRBS_PER_UE) {
     sdap_info.sdap_entity_llist = entityPtr->next_entity;
+    if (entityPtr->pdusession_sock != -1)
+      remove_ip_if(entityPtr);
     free(entityPtr);
     entityPtr = sdap_info.sdap_entity_llist;
     ret = true;
@@ -638,6 +643,8 @@ bool nr_sdap_delete_ue_entities(ue_id_t ue_id)
       entityPtr = entityPtr->next_entity;
     } else {
       entityPrev->next_entity = entityPtr->next_entity;
+      if (entityPtr->pdusession_sock != -1)
+        remove_ip_if(entityPtr);
       free(entityPtr);
       entityPtr = entityPrev->next_entity;
       LOG_I(SDAP, "Successfully deleted SDAP entity for UE %ld\n", ue_id);
