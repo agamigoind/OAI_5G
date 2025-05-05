@@ -238,7 +238,9 @@ static void mac_rrc_init(gNB_MAC_INST *mac, ngran_node_t node_type)
 void mac_top_init_gNB(ngran_node_t node_type,
                       NR_ServingCellConfigCommon_t *scc,
                       NR_ServingCellConfig_t *scd,
-                      const nr_mac_config_t *config)
+                      const nr_mac_config_t *config,
+                      const nr_pdcp_configuration_t *default_pdcp_config,
+                      const nr_rlc_configuration_t *default_rlc_config)
 {
   module_id_t     i;
   gNB_MAC_INST    *nrmac;
@@ -274,6 +276,7 @@ void mac_top_init_gNB(ngran_node_t node_type,
 
       RC.nrmac[i]->common_channels[0].ServingCellConfigCommon = scc;
       RC.nrmac[i]->radio_config = *config;
+      RC.nrmac[i]->rlc_config = *default_rlc_config;
 
       RC.nrmac[i]->common_channels[0].pre_ServingCellConfig = scd;
 
@@ -317,7 +320,7 @@ void mac_top_init_gNB(ngran_node_t node_type,
       // get default noS1 configuration
       NR_RadioBearerConfig_t *rbconfig = NULL;
       NR_RLC_BearerConfig_t *rlc_rbconfig = NULL;
-      fill_nr_noS1_bearer_config(&rbconfig, &rlc_rbconfig);
+      fill_nr_noS1_bearer_config(&rbconfig, &rlc_rbconfig, default_pdcp_config, default_rlc_config);
 
       /* Note! previously, in nr_DRB_preconfiguration(), we passed ENB_FLAG_NO
        * if ENB_NAS_USE_TUN was *not* set. It seems to me that we could not set

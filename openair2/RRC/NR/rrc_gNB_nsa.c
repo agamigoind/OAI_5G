@@ -172,7 +172,7 @@ void rrc_add_nsa_user(gNB_RRC_INST *rrc, rrc_gNB_ue_context_t *ue_context_p, x2a
 
   // NR RRCReconfiguration
   if (get_softmodem_params()->phy_test == 1 || get_softmodem_params()->do_ra == 1) {
-    UE->rb_config = get_default_rbconfig(10 /* EPS bearer ID */, 1 /* drb ID */, NR_CipheringAlgorithm_nea0, NR_SecurityConfig__keyToUse_master);
+    UE->rb_config = get_default_rbconfig(10 /* EPS bearer ID */, 1 /* drb ID */, NR_CipheringAlgorithm_nea0, NR_SecurityConfig__keyToUse_master, &rrc->pdcp_config);
   } else {
     /* TODO: handle more than one bearer */
     if (m == NULL) {
@@ -251,7 +251,7 @@ void rrc_add_nsa_user(gNB_RRC_INST *rrc, rrc_gNB_ue_context_t *ue_context_p, x2a
         exit(1);
     }
 
-    UE->rb_config = get_default_rbconfig(m->e_rabs_tobeadded[0].e_rab_id, m->e_rabs_tobeadded[0].drb_ID, cipher_algo, NR_SecurityConfig__keyToUse_secondary);
+    UE->rb_config = get_default_rbconfig(m->e_rabs_tobeadded[0].e_rab_id, m->e_rabs_tobeadded[0].drb_ID, cipher_algo, NR_SecurityConfig__keyToUse_secondary, &rrc->pdcp_config);
   }
 
   NR_ServingCellConfig_t *scc = RC.nrmac[0]->common_channels[0].pre_ServingCellConfig;
@@ -260,7 +260,7 @@ void rrc_add_nsa_user(gNB_RRC_INST *rrc, rrc_gNB_ue_context_t *ue_context_p, x2a
   // MAC Context
   NR_ServingCellConfigCommon_t *sccc = RC.nrmac[0]->common_channels[0].ServingCellConfigCommon;
   NR_CellGroupConfig_t *secondaryCellGroup =
-      get_default_secondaryCellGroup(sccc, scc, UE->UE_Capability_nr, 1, 1, configuration, ue_context_p->ue_context.rrc_ue_id);
+      get_default_secondaryCellGroup(sccc, scc, UE->UE_Capability_nr, 1, 1, configuration, &rrc->rlc_config, ue_context_p->ue_context.rrc_ue_id);
   AssertFatal(secondaryCellGroup != NULL, "out of memory\n");
 
   NR_RRCReconfiguration_t *reconfig = calloc(1, sizeof(NR_RRCReconfiguration_t));

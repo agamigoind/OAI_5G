@@ -46,6 +46,8 @@
 #include "LAYER2/nr_rlc/nr_rlc_oai_api.h"
 #include "asn1_msg.h"
 #include "../nr_rrc_proto.h"
+#include "LAYER2/nr_pdcp/nr_pdcp_asn1_utils.h"
+#include "LAYER2/nr_rlc/nr_rlc_asn1_utils.h"
 
 #include "openair3/SECU/key_nas_deriver.h"
 
@@ -271,7 +273,8 @@ int do_RRCReject(uint8_t *const buffer)
 
 NR_RLC_BearerConfig_t *get_SRB_RLC_BearerConfig(long channelId,
                                                 long priority,
-                                                e_NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration bucketSizeDuration)
+                                                e_NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration bucketSizeDuration,
+                                                const nr_rlc_configuration_t *default_rlc_config)
 {
   NR_RLC_BearerConfig_t *rlc_BearerConfig = NULL;
   rlc_BearerConfig                                                 = calloc(1, sizeof(NR_RLC_BearerConfig_t));
@@ -285,15 +288,15 @@ NR_RLC_BearerConfig_t *get_SRB_RLC_BearerConfig(long channelId,
   rlc_Config->present                                              = NR_RLC_Config_PR_am;
   rlc_Config->choice.am                                            = calloc(1, sizeof(*rlc_Config->choice.am));
   rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength                  = calloc(1, sizeof(NR_SN_FieldLengthAM_t));
-  *(rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength)               = NR_SN_FieldLengthAM_size12;
-  rlc_Config->choice.am->dl_AM_RLC.t_Reassembly                    = NR_T_Reassembly_ms35;
-  rlc_Config->choice.am->dl_AM_RLC.t_StatusProhibit                = NR_T_StatusProhibit_ms0;
+  *(rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength)               = encode_sn_field_length_am(default_rlc_config->srb.sn_field_length);
+  rlc_Config->choice.am->dl_AM_RLC.t_Reassembly                    = encode_t_reassembly(default_rlc_config->srb.t_reassembly);
+  rlc_Config->choice.am->dl_AM_RLC.t_StatusProhibit                = encode_t_status_prohibit(default_rlc_config->srb.t_status_prohibit);
   rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength                  = calloc(1, sizeof(NR_SN_FieldLengthAM_t));
-  *(rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength)               = NR_SN_FieldLengthAM_size12;
-  rlc_Config->choice.am->ul_AM_RLC.t_PollRetransmit                = NR_T_PollRetransmit_ms45;
-  rlc_Config->choice.am->ul_AM_RLC.pollPDU                         = NR_PollPDU_infinity;
-  rlc_Config->choice.am->ul_AM_RLC.pollByte                        = NR_PollByte_infinity;
-  rlc_Config->choice.am->ul_AM_RLC.maxRetxThreshold                = NR_UL_AM_RLC__maxRetxThreshold_t8;
+  *(rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength)               = encode_sn_field_length_am(default_rlc_config->srb.sn_field_length);
+  rlc_Config->choice.am->ul_AM_RLC.t_PollRetransmit                = encode_t_poll_retransmit(default_rlc_config->srb.t_poll_retransmit);
+  rlc_Config->choice.am->ul_AM_RLC.pollPDU                         = encode_poll_pdu(default_rlc_config->srb.poll_pdu);
+  rlc_Config->choice.am->ul_AM_RLC.pollByte                        = encode_poll_byte(default_rlc_config->srb.poll_byte);
+  rlc_Config->choice.am->ul_AM_RLC.maxRetxThreshold                = encode_max_retx_threshold(default_rlc_config->srb.max_retx_threshold);
   rlc_BearerConfig->rlc_Config                                     = rlc_Config;
 
   NR_LogicalChannelConfig_t *logicalChannelConfig                  = calloc(1, sizeof(NR_LogicalChannelConfig_t));
@@ -314,7 +317,9 @@ NR_RLC_BearerConfig_t *get_SRB_RLC_BearerConfig(long channelId,
   return rlc_BearerConfig;
 }
 
-static void nr_drb_config(struct NR_RLC_Config *rlc_Config, NR_RLC_Config_PR rlc_config_pr)
+static void nr_drb_config(struct NR_RLC_Config *rlc_Config,
+                          NR_RLC_Config_PR rlc_config_pr,
+                          const nr_rlc_configuration_t *default_rlc_config)
 {
   switch (rlc_config_pr) {
     case NR_RLC_Config_PR_um_Bi_Directional:
@@ -323,25 +328,25 @@ static void nr_drb_config(struct NR_RLC_Config *rlc_Config, NR_RLC_Config_PR rlc
       rlc_Config->choice.um_Bi_Directional = calloc(1, sizeof(*rlc_Config->choice.um_Bi_Directional));
       rlc_Config->choice.um_Bi_Directional->ul_UM_RLC.sn_FieldLength =
           calloc(1, sizeof(*rlc_Config->choice.um_Bi_Directional->ul_UM_RLC.sn_FieldLength));
-      *rlc_Config->choice.um_Bi_Directional->ul_UM_RLC.sn_FieldLength = NR_SN_FieldLengthUM_size12;
+      *rlc_Config->choice.um_Bi_Directional->ul_UM_RLC.sn_FieldLength = encode_sn_field_length_um(default_rlc_config->drb_um.sn_field_length);
       rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.sn_FieldLength =
           calloc(1, sizeof(*rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.sn_FieldLength));
-      *rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.sn_FieldLength = NR_SN_FieldLengthUM_size12;
-      rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.t_Reassembly = NR_T_Reassembly_ms15;
+      *rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.sn_FieldLength = encode_sn_field_length_um(default_rlc_config->drb_um.sn_field_length);
+      rlc_Config->choice.um_Bi_Directional->dl_UM_RLC.t_Reassembly = encode_t_reassembly(default_rlc_config->drb_um.t_reassembly);
       break;
     case NR_RLC_Config_PR_am:
       // RLC AM Bearer configuration
       rlc_Config->choice.am = calloc(1, sizeof(*rlc_Config->choice.am));
       rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength = calloc(1, sizeof(*rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength));
-      *rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength = NR_SN_FieldLengthAM_size18;
-      rlc_Config->choice.am->ul_AM_RLC.t_PollRetransmit = NR_T_PollRetransmit_ms45;
-      rlc_Config->choice.am->ul_AM_RLC.pollPDU = NR_PollPDU_p64;
-      rlc_Config->choice.am->ul_AM_RLC.pollByte = NR_PollByte_kB500;
-      rlc_Config->choice.am->ul_AM_RLC.maxRetxThreshold = NR_UL_AM_RLC__maxRetxThreshold_t32;
+      *rlc_Config->choice.am->ul_AM_RLC.sn_FieldLength = encode_sn_field_length_am(default_rlc_config->drb_am.sn_field_length);
+      rlc_Config->choice.am->ul_AM_RLC.t_PollRetransmit = encode_t_poll_retransmit(default_rlc_config->drb_am.t_poll_retransmit);
+      rlc_Config->choice.am->ul_AM_RLC.pollPDU = encode_poll_pdu(default_rlc_config->drb_am.poll_pdu);
+      rlc_Config->choice.am->ul_AM_RLC.pollByte = encode_poll_byte(default_rlc_config->drb_am.poll_byte);
+      rlc_Config->choice.am->ul_AM_RLC.maxRetxThreshold = encode_max_retx_threshold(default_rlc_config->drb_am.max_retx_threshold);
       rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength = calloc(1, sizeof(*rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength));
-      *rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength = NR_SN_FieldLengthAM_size18;
-      rlc_Config->choice.am->dl_AM_RLC.t_Reassembly = NR_T_Reassembly_ms15;
-      rlc_Config->choice.am->dl_AM_RLC.t_StatusProhibit = NR_T_StatusProhibit_ms15;
+      *rlc_Config->choice.am->dl_AM_RLC.sn_FieldLength = encode_sn_field_length_am(default_rlc_config->drb_am.sn_field_length);
+      rlc_Config->choice.am->dl_AM_RLC.t_Reassembly = encode_t_reassembly(default_rlc_config->drb_am.t_reassembly);
+      rlc_Config->choice.am->dl_AM_RLC.t_StatusProhibit = encode_t_status_prohibit(default_rlc_config->drb_am.t_status_prohibit);
       break;
     default:
       AssertFatal(false, "RLC config type %d not handled\n", rlc_config_pr);
@@ -350,7 +355,11 @@ static void nr_drb_config(struct NR_RLC_Config *rlc_Config, NR_RLC_Config_PR rlc
   rlc_Config->present = rlc_config_pr;
 }
 
-NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId, long drbId, NR_RLC_Config_PR rlc_conf, long priority)
+NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId,
+                                                long drbId,
+                                                NR_RLC_Config_PR rlc_conf,
+                                                long priority,
+                                                const nr_rlc_configuration_t *default_rlc_config)
 {
   NR_RLC_BearerConfig_t *rlc_BearerConfig                  = calloc(1, sizeof(NR_RLC_BearerConfig_t));
   rlc_BearerConfig->logicalChannelIdentity                 = lcChannelId;
@@ -360,7 +369,7 @@ NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId, long drbId, NR
   rlc_BearerConfig->reestablishRLC                         = NULL;
 
   NR_RLC_Config_t *rlc_Config  = calloc(1, sizeof(NR_RLC_Config_t));
-  nr_drb_config(rlc_Config, rlc_conf);
+  nr_drb_config(rlc_Config, rlc_conf, default_rlc_config);
   rlc_BearerConfig->rlc_Config = rlc_Config;
 
   NR_LogicalChannelConfig_t *logicalChannelConfig                 = calloc(1, sizeof(NR_LogicalChannelConfig_t));
@@ -385,7 +394,8 @@ NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId, long drbId, NR
 NR_RadioBearerConfig_t *get_default_rbconfig(int eps_bearer_id,
                                              int rb_id,
                                              e_NR_CipheringAlgorithm ciphering_algorithm,
-                                             e_NR_SecurityConfig__keyToUse key_to_use)
+                                             e_NR_SecurityConfig__keyToUse key_to_use,
+                                             const nr_pdcp_configuration_t *pdcp_config)
 {
   NR_RadioBearerConfig_t *rbconfig = calloc(1, sizeof(*rbconfig));
   rbconfig->srb_ToAddModList = NULL;
@@ -400,9 +410,9 @@ NR_RadioBearerConfig_t *get_default_rbconfig(int eps_bearer_id,
   drb_ToAddMod->recoverPDCP = NULL;
   drb_ToAddMod->pdcp_Config = calloc(1,sizeof(*drb_ToAddMod->pdcp_Config));
   asn1cCalloc(drb_ToAddMod->pdcp_Config->drb, drb);
-  asn1cCallocOne(drb->discardTimer, NR_PDCP_Config__drb__discardTimer_infinity);
-  asn1cCallocOne(drb->pdcp_SN_SizeUL, NR_PDCP_Config__drb__pdcp_SN_SizeUL_len18bits);
-  asn1cCallocOne(drb->pdcp_SN_SizeDL, NR_PDCP_Config__drb__pdcp_SN_SizeDL_len18bits);
+  asn1cCallocOne(drb->discardTimer, encode_discard_timer(pdcp_config->drb.discard_timer));
+  asn1cCallocOne(drb->pdcp_SN_SizeUL, encode_sn_size_ul(pdcp_config->drb.sn_size));
+  asn1cCallocOne(drb->pdcp_SN_SizeDL, encode_sn_size_dl(pdcp_config->drb.sn_size));
   drb->headerCompression.present = NR_PDCP_Config__drb__headerCompression_PR_notUsed;
   drb->headerCompression.choice.notUsed = 0;
   drb->integrityProtection = NULL;
@@ -410,7 +420,7 @@ NR_RadioBearerConfig_t *get_default_rbconfig(int eps_bearer_id,
   drb->outOfOrderDelivery = NULL;
 
   drb_ToAddMod->pdcp_Config->moreThanOneRLC = NULL;
-  asn1cCallocOne(drb_ToAddMod->pdcp_Config->t_Reordering, NR_PDCP_Config__t_Reordering_ms100);
+  asn1cCallocOne(drb_ToAddMod->pdcp_Config->t_Reordering, encode_t_reordering(pdcp_config->drb.t_reordering));
   drb_ToAddMod->pdcp_Config->ext1 = NULL;
 
   asn1cSeqAdd(&rbconfig->drb_ToAddModList->list,drb_ToAddMod);
@@ -426,17 +436,19 @@ NR_RadioBearerConfig_t *get_default_rbconfig(int eps_bearer_id,
 }
 
 void fill_nr_noS1_bearer_config(NR_RadioBearerConfig_t **rbconfig,
-                                NR_RLC_BearerConfig_t **rlc_rbconfig)
+                                NR_RLC_BearerConfig_t **rlc_rbconfig,
+                                const nr_pdcp_configuration_t *default_pdcp_config,
+                                const nr_rlc_configuration_t *default_rlc_config)
 {
   /* the EPS bearer ID is arbitrary; the rb_id is 1/the first DRB, it needs to
    * match the one in get_DRB_RLC_BearerConfig(). No ciphering is to be
    * configured */
-  *rbconfig = get_default_rbconfig(10, 1, NR_CipheringAlgorithm_nea0, NR_SecurityConfig__keyToUse_master);
+  *rbconfig = get_default_rbconfig(10, 1, NR_CipheringAlgorithm_nea0, NR_SecurityConfig__keyToUse_master, default_pdcp_config);
   AssertFatal(*rbconfig != NULL, "get_default_rbconfig() failed\n");
   /* LCID is 4 because the RLC layer requires it to be 3+rb_id; the rb_id 1 is
    * common with get_default_rbconfig() (first RB). We pre-configure RLC UM
    * Bi-directional, priority is 1 */
-  *rlc_rbconfig = get_DRB_RLC_BearerConfig(4, 1, NR_RLC_Config_PR_um_Bi_Directional, 1);
+  *rlc_rbconfig = get_DRB_RLC_BearerConfig(4, 1, NR_RLC_Config_PR_um_Bi_Directional, 1, default_rlc_config);
   AssertFatal(*rlc_rbconfig != NULL, "get_DRB_RLC_BearerConfig() failed\n");
 }
 

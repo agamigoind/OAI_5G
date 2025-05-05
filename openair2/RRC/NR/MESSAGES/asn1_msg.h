@@ -52,6 +52,8 @@
 #include "NR_SecurityConfig.h"
 #include "ds/seq_arr.h"
 #include "rrc_messages_types.h"
+#include "openair2/LAYER2/nr_rlc/nr_rlc_configuration.h"
+#include "openair2/LAYER2/nr_pdcp/nr_pdcp_configuration.h"
 struct NR_RRCReconfiguration_v1530_IEs__dedicatedNAS_MessageList;
 struct asn_TYPE_descriptor_s;
 
@@ -72,16 +74,24 @@ int do_RRCReject(uint8_t *const buffer);
 NR_RLC_BearerConfig_t *get_SRB_RLC_BearerConfig(
     long channelId,
     long priority,
-    e_NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration bucketSizeDuration);
-NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId, long drbId, NR_RLC_Config_PR rlc_conf, long priority);
+    e_NR_LogicalChannelConfig__ul_SpecificParameters__bucketSizeDuration bucketSizeDuration,
+    const nr_rlc_configuration_t *default_rlc_config);
+NR_RLC_BearerConfig_t *get_DRB_RLC_BearerConfig(long lcChannelId,
+                                                long drbId,
+                                                NR_RLC_Config_PR rlc_conf,
+                                                long priority,
+                                                const nr_rlc_configuration_t *default_rlc_config);
 
 NR_RadioBearerConfig_t *get_default_rbconfig(int eps_bearer_id,
                                              int rb_id,
                                              e_NR_CipheringAlgorithm ciphering_algorithm,
-                                             e_NR_SecurityConfig__keyToUse key_to_use);
+                                             e_NR_SecurityConfig__keyToUse key_to_use,
+                                             const nr_pdcp_configuration_t *pdcp_config);
 
 void fill_nr_noS1_bearer_config(NR_RadioBearerConfig_t **rbconfig,
-                                NR_RLC_BearerConfig_t **rlc_rbconfig);
+                                NR_RLC_BearerConfig_t **rlc_rbconfig,
+                                const nr_pdcp_configuration_t *default_pdcp_config,
+                                const nr_rlc_configuration_t *default_rlc_config);
 void free_nr_noS1_bearer_config(NR_RadioBearerConfig_t **rbconfig,
                                 NR_RLC_BearerConfig_t **rlc_rbconfig);
 
