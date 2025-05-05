@@ -12,7 +12,7 @@ macro(add_physim_test test_gen test_exec test_description test_label)
     LABELS "${test_exec}: ${test_label};${test_exec}"
     ENVIRONMENT "LD_LIBRARY_PATH=."
   )
-  add_dependencies(tests ${test_exec} coding)
+  add_dependencies(tests ${test_exec})
 endmacro()
 
 ####################################################################################
