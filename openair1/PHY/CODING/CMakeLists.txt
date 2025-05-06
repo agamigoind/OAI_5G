@@ -24,13 +24,20 @@ add_library(ldpc MODULE
 set_target_properties(ldpc PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 target_link_libraries(ldpc PRIVATE ldpc_segment ldpc_gen_HEADERS)
 
-add_dependencies(ldpctest ldpc ldpc_orig)
-add_dependencies(nr-softmodem ldpc ldpc_orig)
-add_dependencies(nr-uesoftmodem ldpc ldpc_orig)
-add_dependencies(nr_ulsim ldpc ldpc_orig)
-add_dependencies(nr_ulschsim ldpc ldpc_orig)
-add_dependencies(nr_dlsim ldpc ldpc_orig)
-add_dependencies(nr_dlschsim ldpc ldpc_orig)
+add_library(ldpc_sequential_write MODULE
+            nrLDPC_decoder/nrLDPC_decoder.c
+            nrLDPC_encoder/ldpc_encoder_optim8segmulti.c
+)
+set_target_properties(ldpc_sequential_write PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+target_link_libraries(ldpc_sequential_write PRIVATE ldpc_segment_sequential_write ldpc_gen_HEADERS)
+
+add_dependencies(ldpctest ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr-softmodem ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr-uesoftmodem ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr_ulsim ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr_ulschsim ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr_dlsim ldpc ldpc_sequential_write ldpc_orig)
+add_dependencies(nr_dlschsim ldpc ldpc_sequential_write ldpc_orig)
 
 add_custom_target(nrLDPC_decoder_kernels_CL
                   COMMAND gcc nrLDPC_decoder/nrLDPC_decoder_CL.c -dD -DNRLDPC_KERNEL_SOURCE -E -o ${CMAKE_CURRENT_BINARY_DIR}/nrLDPC_decoder_kernels_CL.clc
