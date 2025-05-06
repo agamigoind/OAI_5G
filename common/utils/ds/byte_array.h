@@ -41,6 +41,13 @@ byte_array_t copy_byte_array(byte_array_t src);
 void free_byte_array(byte_array_t ba);
 bool eq_byte_array(const byte_array_t* m0, const byte_array_t* m1);
 
+#define FREE_AND_ZERO_BYTE_ARRAY(P_BA) \
+  do {                                 \
+    free_byte_array(*P_BA);            \
+    P_BA->buf = NULL;                  \
+    P_BA->size = 0;                    \
+  } while (0)
+
 byte_array_t cp_str_to_ba(const char* str);
 char* cp_ba_to_str(const byte_array_t ba);
 
