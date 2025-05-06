@@ -842,7 +842,7 @@ static bool flushInput(rfsimulator_state_t *t, int timeout, int nsamps_for_initi
 
       buffer_t *b = get_buff_from_socket(t, conn_sock);
       if (b->channel_model)
-        b->channel_model->start_TS = t->lastWroteTS;
+        b->channel_model->start_TS = t->nextRxTstamp;
     } else {
       if ( events[nbEv].events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP) ) {
         socketError(t,fd);
