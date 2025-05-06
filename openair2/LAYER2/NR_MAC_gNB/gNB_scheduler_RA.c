@@ -550,6 +550,10 @@ void schedule_nr_prach(module_id_t module_idP, frame_t frameP, slot_t slotP)
         total_prach_slots = 1;
       }
       // reserve PRBs occupied by PRACH in all PRACH slot.
+      if (start_symb + N_t_slot * N_dur == 14)
+        LOG_W(NR_MAC,
+              "PRACH with configuration index %d goes to the last symbol of the slot, for optimal performance pick another index\n",
+              config_index);
       for (int i = 0; i < total_prach_slots; i++) {
         fill_vrb(frameP,
                  slotP + i,
