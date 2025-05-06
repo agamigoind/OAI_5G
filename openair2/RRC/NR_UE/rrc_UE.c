@@ -165,7 +165,127 @@ static void set_DRB_status(NR_UE_RRC_INST_t *rrc, NR_DRB_Identity_t drb_id, NR_R
   rrc->status_DRBs[drb_id - 1] = status;
 }
 
-static void nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si, NR_UE_RRC_INST_t *rrc)
+static int get_ulsyncvalidityduration_timer_value(NR_NTN_Config_r17_t *ntncfg)
+{
+  int retval = 0;
+  AssertFatal(ntncfg, "NTN-Config IE not present\n");
+
+  if (ntncfg->ntn_UlSyncValidityDuration_r17) {
+    const int values[] = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 120, 180, 240, 900};
+    retval = values[*ntncfg->ntn_UlSyncValidityDuration_r17];
+  }
+
+  return retval;
+}
+
+static void get_epochtime_from_sib19scheduling(NR_UE_RRC_INST_t *rrc,
+                                               int *frame,
+                                               int *subframe)
+{
+
+  // TS 38.331 section 5.2.2.3.2
+  // SI-window starts at the slot #a, where a = x mod N
+  // x = (si-WindowPosition -1) × w, where w is the si-WindowLength;
+  // N is the number of slots in a radio frame
+  int x = (rrc->sib19_windowposition - 1) * rrc->si_windowlength;
+  int N = rrc->slots_per_subframe * 10;
+  int slot_end_sib19_window = (x % N + rrc->si_windowlength);
+
+  *frame += slot_end_sib19_window/N;
+  int slot = slot_end_sib19_window % N;
+  *subframe = ceil(slot / rrc->slots_per_subframe);
+
+  LOG_D(NR_RRC, "Get EPOCHTIME: x:%d, N:%d, slot_endw:%d, frame:%d, subframe:%d , slot:%d\n",
+                                              x, N, slot_end_sib19_window, *frame, *subframe, slot);
+}
+
+static int get_sib19_timervalues(NR_UE_RRC_INST_t *rrc,
+                                 NR_NTN_Config_r17_t *ntncfg,
+                                 int frame,
+                                 int slot,
+                                 int *val430_ms)
+{
+
+  int subframe = ceil(slot/rrc->slots_per_subframe);
+  int current_time_ms = frame * 10 + subframe;
+  int epoch_frame = 0, epoch_subframe = 0, epoch_time_ms = 0, expired_ms = 0;
+  // ulsyncvalidity Duration starts from epochtime, Reduce the value from already expired time
+  // Frame wraparound 1024 in ms is 1024*10
+  if (ntncfg->epochTime_r17) {
+    epoch_frame = ntncfg->epochTime_r17->sfn_r17;
+    epoch_subframe = ntncfg->epochTime_r17->subFrameNR_r17;
+    // In this case current frame/slot will always be ahead of epoch time
+    epoch_time_ms = epoch_frame * 10 + epoch_subframe;
+    expired_ms = current_time_ms - epoch_time_ms;
+  } else {
+    AssertFatal(frame >= 0 && slot >= 0,"SIB19 received in RRCreconfig must have epoch time IE\n");
+    // If no EPOCH time is sent, epochtime points to SIB19 window end slot in the current scheduling window
+    epoch_frame = frame;
+    epoch_subframe = 0;
+    get_epochtime_from_sib19scheduling(rrc, &epoch_frame, &epoch_subframe);
+    // In this case epoch time same or few slots ahead to current frame/slot
+    epoch_time_ms = epoch_frame * 10 + epoch_subframe;
+    expired_ms = epoch_time_ms - current_time_ms;
+  }
+  if (expired_ms < 0) expired_ms = (expired_ms + 10240) % 10240;
+
+  LOG_D(NR_RRC, "Frame, sfn: EPOCH:%d-%d, current:%d-%d\n", epoch_frame, epoch_subframe, frame, subframe);
+  LOG_D(NR_RRC, "current_time:%d ms, epochtime:%d ms, expired:%d ms\n", current_time_ms, epoch_time_ms, expired_ms);
+
+  int val430 = get_ulsyncvalidityduration_timer_value(ntncfg);
+  int sib19_periodicity_ms = (rrc->sib19_periodicity + 1) * 10;
+  int diff = val430 * 1000 - expired_ms;
+  if (diff > 0) *val430_ms = diff;
+  if (*val430_ms == 0 || *val430_ms <= sib19_periodicity_ms)
+    LOG_E(NR_RRC, "Too small T430 value. Might result in frequent ULSYNC failure\n");
+
+  // Depending on ulsyncvalidity duration, SIB19 timer expires 15secs/2secs before T430
+  // LArger values might be used for GEO and epoch time interval can be around 10 secs
+  // Lower values will be used for NGSO (LEO/MEO), epoch time interval can be between 2-3 secs.
+  int expire_before_ms = ((val430 >= 120) ? 10000 : 2000);
+  diff = *val430_ms - expire_before_ms;
+  int sib19_timer_ms = (diff > 0) ? diff
+                                  : ((*val430_ms - sib19_periodicity_ms) > 0) ? (*val430_ms - sib19_periodicity_ms) : 0;
+  LOG_D(NR_RRC, "val430:%d s, T430:%d ms, expire before:%d ms, sib19_timer:%d ms\n",
+                                            val430, *val430_ms, expire_before_ms, sib19_timer_ms);
+
+  return sib19_timer_ms;
+}
+
+static void nr_rrc_process_sib19(NR_UE_RRC_INST_t *rrc,
+                                 NR_UE_RRC_SI_INFO *SI_info,
+                                 NR_SIB19_r17_t *sib19,
+                                 int frame,
+                                 int slot)
+{
+  if (g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
+    xer_fprint(stdout, &asn_DEF_NR_SIB19_r17, (const void *)sib19);
+
+  SI_info->SInfo_r17.sib19_validity = true;
+
+  int val430_ms = 0, sib19_timer_ms = 0;
+  sib19_timer_ms = get_sib19_timervalues(rrc, sib19->ntn_Config_r17, frame, slot, &val430_ms);
+
+  if (sib19->ntn_Config_r17->ntn_UlSyncValidityDuration_r17) { //ulsyncvalidity duration configured
+    // T430 should be started only in connected mode.
+    // Inorder to avoid starting T430 when entering connected mode, T430 is started as soon as
+    // SIB19 is received, and if UE enters connected mode T430 will be in running.
+    // T430 expiry in RRC idle or inactive states does nothing.
+    nr_timer_setup(&rrc->timers_and_constants.T430, val430_ms, 10);
+    nr_timer_start(&rrc->timers_and_constants.T430);
+    // SIB19 should be received before T430 expires
+    // SIB19 validity timer should expire before T430 expiry such that new SIB19 is read
+    if (sib19_timer_ms > 0) {
+      nr_timer_setup(&SI_info->SInfo_r17.sib19_timer, sib19_timer_ms, 10);
+      nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
+    } else
+      // This makes sure that SIB19 is read again in the next window
+      SI_info->SInfo_r17.sib19_validity = false;
+  } else
+    nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
+}
+
+static void nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si, NR_UE_RRC_INST_t *rrc, int frame, int slot)
 {
   instance_t ue_id = rrc->ue_id;
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_RRC_UE_DECODE_SI, VCD_FUNCTION_IN);
@@ -240,11 +360,8 @@ static void nr_decode_SI(NR_UE_RRC_SI_INFO *SI_info, NR_SystemInformation_t *si,
         nr_timer_start(&SI_info->sib14_timer);
         break;
       case NR_SystemInformation_IEs__sib_TypeAndInfo__Member_PR_sib19_v1700:
-        SI_info->SInfo_r17.sib19_validity = true;
-        if (g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
-          xer_fprint(stdout, &asn_DEF_NR_SIB19_r17, (const void *)typeandinfo->choice.sib19_v1700);
         sib19 = typeandinfo->choice.sib19_v1700;
-        nr_timer_start(&SI_info->SInfo_r17.sib19_timer);
+        nr_rrc_process_sib19(rrc, SI_info, sib19, frame, slot);
         break;
       default:
         break;
@@ -335,6 +452,36 @@ static bool verify_NTN_access(const NR_UE_RRC_SI_INFO *SI_info, const NR_SIB1_v1
   return ntn_access && sib19_present;
 }
 
+static void get_sib19_schedinfo(NR_UE_RRC_INST_t *rrc,
+                                NR_SIB1_t *sib1,
+                                NR_SI_SchedulingInfo_v1700_t *si_SchedInfo_v1700)
+{
+
+  AssertFatal(sib1->si_SchedulingInfo && sib1->servingCellConfigCommon, "Should not be NULL\n");
+
+  rrc->si_windowlength = sib1->si_SchedulingInfo->si_WindowLength;
+  int scs = sib1->servingCellConfigCommon->downlinkConfigCommon.initialDownlinkBWP.genericParameters.subcarrierSpacing;
+  rrc->slots_per_subframe = 1 << scs;
+
+  // Find the SIB19 periodicity configured in the scheduling info
+  if (si_SchedInfo_v1700) {
+    int count_v17 = si_SchedInfo_v1700->schedulingInfoList2_r17.list.count;
+    for (int i = 0; i < count_v17; i++) {
+      struct NR_SchedulingInfo2_r17 *schedulingInfo2 = si_SchedInfo_v1700->schedulingInfoList2_r17.list.array[i];
+      for (int j = 0; j < schedulingInfo2->sib_MappingInfo_r17.list.count; j++) {
+        struct NR_SIB_TypeInfo_v1700 *sib_TypeInfo_v1700 = schedulingInfo2->sib_MappingInfo_r17.list.array[j];
+        if (sib_TypeInfo_v1700->sibType_r17.present == NR_SIB_TypeInfo_v1700__sibType_r17_PR_type1_r17) {
+          if (sib_TypeInfo_v1700->sibType_r17.choice.type1_r17 == NR_SIB_TypeInfo_v1700__sibType_r17__type1_r17_sibType19) {
+            rrc->sib19_periodicity = 8 << schedulingInfo2->si_Periodicity_r17;
+            rrc->sib19_windowposition = schedulingInfo2->si_WindowPosition_r17;
+            return;
+          }
+        }
+      }
+    }
+  }
+}
+
 static void nr_rrc_process_sib1(NR_UE_RRC_INST_t *rrc, NR_UE_RRC_SI_INFO *SI_info, NR_SIB1_t *sib1)
 {
   if(g_log->log_component[NR_RRC].level >= OAILOG_DEBUG)
@@ -358,6 +505,7 @@ static void nr_rrc_process_sib1(NR_UE_RRC_INST_t *rrc, NR_UE_RRC_SI_INFO *SI_inf
   // configure default SI
   nr_rrc_configure_default_SI(SI_info, sib1->si_SchedulingInfo, si_SchedInfo_v1700);
   rrc->is_NTN_UE = verify_NTN_access(SI_info, sib1_v1700);
+  get_sib19_schedinfo(rrc, sib1, si_SchedInfo_v1700);
 
   // configure timers and constant
   nr_rrc_set_sib1_timers_and_constants(&rrc->timers_and_constants, sib1);
@@ -426,7 +574,7 @@ static void nr_rrc_process_reconfiguration_v1530(NR_UE_RRC_INST_t *rrc, NR_RRCRe
       SEQUENCE_free(&asn_DEF_NR_SystemInformation, si, 1);
     } else {
       LOG_I(NR_RRC, "[UE %ld] Decoding dedicatedSystemInformationDelivery\n", rrc->ue_id);
-      nr_decode_SI(SI_info, si, rrc);
+      nr_decode_SI(SI_info, si, rrc, -1, -1);
     }
   }
   if (rec_1530->otherConfig) {
@@ -924,7 +1072,9 @@ static void nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(NR_UE_RRC_INST_t *rrc,
                                                     uint8_t *const Sdu,
                                                     const uint8_t Sdu_len,
                                                     const uint8_t rsrq,
-                                                    const uint8_t rsrp)
+                                                    const uint8_t rsrp,
+                                                    int frame,
+                                                    int slot)
 {
   NR_UE_RRC_SI_INFO *SI_info = &rrc->perNB[gNB_index].SInfo;
   SI_info->sib_pending = false;
@@ -962,7 +1112,7 @@ static void nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(NR_UE_RRC_INST_t *rrc,
       case NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformation:
         LOG_I(NR_RRC, "[UE %ld] Decoding SI\n", rrc->ue_id);
         NR_SystemInformation_t *si = bcch_message->message.choice.c1->choice.systemInformation;
-        nr_decode_SI(SI_info, si, rrc);
+        nr_decode_SI(SI_info, si, rrc, frame, slot);
         break;
       case NR_BCCH_DL_SCH_MessageType__c1_PR_NOTHING:
       default:
@@ -1046,6 +1196,9 @@ static void nr_rrc_process_reconfigurationWithSync(NR_UE_RRC_INST_t *rrc, NR_Rec
   }
   rrc->rnti = reconfigurationWithSync->newUE_Identity;
   // reset the MAC entity of this cell group (done at MAC in handle_reconfiguration_with_sync)
+
+  // 3GPP TS38.331 section 5.3.5.5.2
+  nr_timer_stop(&tac->T430);
 }
 
 void nr_rrc_cellgroup_configuration(NR_UE_RRC_INST_t *rrc, NR_CellGroupConfig_t *cellGroupConfig)
@@ -2043,7 +2196,7 @@ void *rrc_nrue(void *notUsed)
     if (bcch->is_bch)
       nr_rrc_ue_decode_NR_BCCH_BCH_Message(rrc, bcch->gnb_index, bcch->phycellid, bcch->ssb_arfcn, bcch->sdu, bcch->sdu_size);
     else
-      nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(rrc, bcch->gnb_index, bcch->sdu, bcch->sdu_size, bcch->rsrq, bcch->rsrp);
+      nr_rrc_ue_decode_NR_BCCH_DL_SCH_Message(rrc, bcch->gnb_index, bcch->sdu, bcch->sdu_size, bcch->rsrq, bcch->rsrp, bcch->frame, bcch->slot);
     break;
 
   case NR_RRC_MAC_SBCCH_DATA_IND:
